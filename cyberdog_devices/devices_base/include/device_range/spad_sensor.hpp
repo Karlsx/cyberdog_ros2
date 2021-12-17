@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DEVICE_RANGE__TOF_HPP_
-#define DEVICE_RANGE__TOF_HPP_
+#ifndef DEVICE_RANGE__SPAD_HPP_
+#define DEVICE_RANGE__SPAD_HPP_
 
 #include <variant>
 #include <vector>
@@ -25,14 +25,14 @@ namespace cyberdog
 {
 namespace device
 {
-struct TOFTargetT
+struct SPADTargetT
 {
   uint16_t id;
   uint8_t type;
   uint8_t calibrated;
   PoseT relat_pose;
 };
-struct TOFCalibT
+struct SPADCalibT
 {
   double lim_min;
   double lim_max;
@@ -41,22 +41,22 @@ struct TOFCalibT
 };
 
 typedef std::vector<double> PointsDataT;
-typedef std::variant<PointsDataT> TOFDataT;
-typedef uint32_t TOFModeT;
-typedef uint32_t TOFArgK;
+typedef std::variant<PointsDataT> SPADDataT;
+typedef uint32_t SPADModeT;
+typedef uint32_t SPADArgK;
 
 /**
- * @brief TOF is designed for Global Navigation Satellite System devices with serial points data.
+ * @brief SPAD is designed for single photon avalanche diode devices with serial points data.
  * You will got sequential data from this device after setting callback function.
  * You must initialize device with function init(), set device modules informations, and
  * synchronize data if you need. The synchronization mechanism is up to devices and protocol.
  * After initialization, set callback function, please.
  * Argument Key to Argument Map is designed for calibration test online.
  */
-class TOFSensor : public virtual InputDevice
-  <TOFTargetT, TOFDataT, TOFModeT, TOFArgK, TOFCalibT, TOFCalibT> {};
+class SPADSensor : public virtual InputDevice
+  <SPADTargetT, SPADDataT, SPADModeT, SPADArgK, SPADCalibT, SPADCalibT> {};
 
 }  // namespace device
 }  // namespace cyberdog
 
-#endif  // DEVICE_RANGE__TOF_HPP_
+#endif  // DEVICE_RANGE__SPAD_HPP_

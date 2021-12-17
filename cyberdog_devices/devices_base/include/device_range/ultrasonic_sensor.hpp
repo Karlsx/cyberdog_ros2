@@ -40,6 +40,15 @@ typedef double UltrasonicDataT;
 typedef uint32_t UltrasonicModeT;
 typedef uint32_t UltrasonicArgK;
 
+/**
+ * @brief UltrasonicSensor is designed for distance detection devices based on ultrasonic
+ * with double data.
+ * You will got sequential data from this device after setting callback function.
+ * You must initialize device with function init(), set device modules informations, and
+ * synchronize data if you need. The synchronization mechanism is up to devices and protocol.
+ * After initialization, set callback function, please.
+ * Argument Key to Argument Map is designed for calibration test online.
+ */
 class UltrasonicSensor : InputDevice
   <UltrasonicTargetT, UltrasonicDataT, UltrasonicModeT,
     UltrasonicArgK, UltrasonicCalibT, UltrasonicCalibT>{};

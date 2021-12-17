@@ -15,6 +15,9 @@
 #ifndef DEVICE_AUDIO__MICPHONE_HPP_
 #define DEVICE_AUDIO__MICPHONE_HPP_
 
+#include <variant>
+#include <vector>
+
 #include "common_base/common_type.hpp"
 #include "common_base/input_device.hpp"
 
@@ -22,15 +25,21 @@ namespace cyberdog
 {
 namespace device
 {
-struct MicPhoneTargetT
+struct MicTargetT
 {
   uint16_t id;
   uint16_t type;
   PoseT relat_pose;
 };
 
-class MicPhone
-{};
+typedef std::vector<uint8_t> Audio8uT;
+typedef std::variant<Audio8uT> AudioT;
+typedef uint32_t MicModeT;
+typedef uint32_t MicArgK;
+typedef bool MicCalibT;
+
+class Mic : public virtual InputDevice
+  <MicTargetT, AudioT, MicModeT, MicArgK, MicCalibT, MicCalibT> {};
 }  // namespace device
 }  // namespace cyberdog
 
