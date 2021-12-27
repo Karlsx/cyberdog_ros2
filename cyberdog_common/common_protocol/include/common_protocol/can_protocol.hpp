@@ -34,11 +34,11 @@ class CanProtocol : public ProtocolBase<TDataClass>
 public:
   CanProtocol(
     CHILD_STATE_CLCT error_clct,
-    const std::string & name,
+    const std::string & out_name,
     const toml::value & toml_config,
     bool for_send)
   {
-    this->name_ = name;
+    this->out_name_ = out_name;
     this->error_clct_ = (error_clct == nullptr) ? std::make_shared<StateCollector>() : error_clct;
     this->for_send_ = for_send;
 
@@ -49,10 +49,10 @@ public:
     timeout_us = std::clamp(timeout_us, MIN_TIME_OUT_US, MAX_TIME_OUT_US);
 
     can_parser_ = std::make_shared<CanParser>(
-      this->error_clct_->CreatChild(), toml_config, this->name_);
+      this->error_clct_->CreatChild(), toml_config, this->out_name_);
     printf(
       "[CAN_PROTOCOL][INFO] Creat can protocol[%s]: %d error, %d warning\n",
-      this->name_.c_str(), can_parser_->GetInitErrorNum(), can_parser_->GetInitWarnNum());
+      this->out_name_.c_str(), can_parser_->GetInitErrorNum(), can_parser_->GetInitWarnNum());
     auto recv_list = can_parser_->GetRecvList();
     int recv_num = recv_list.size();
     bool send_only = (recv_num == 0) ? true : this->for_send_;
@@ -60,23 +60,23 @@ public:
     if (send_only) {
       printf(
         "[CAN_PROTOCOL][INFO][%s] No recv canid, enable send-only mode\n",
-        this->name_.c_str());
+        this->out_name_.c_str());
       can_op_ = std::make_shared<CanDev>(
         can_interface,
-        this->name_,
+        this->out_name_,
         extended_frame,
         canfd_enable,
         timeout_us * 1000);
     } else {
       can_op_ = canfd_enable ? std::make_shared<CanDev>(
         can_interface,
-        this->name_,
+        this->out_name_,
         extended_frame,
         std::bind(&CanProtocol::recv_callback_fd, this, std::placeholders::_1),
         timeout_us * 1000) :
         std::make_shared<CanDev>(
         can_interface,
-        this->name_,
+        this->out_name_,
         extended_frame,
         std::bind(&CanProtocol::recv_callback_std, this, std::placeholders::_1),
         timeout_us * 1000);
@@ -109,7 +109,7 @@ public:
         this->error_clct_->LogState(ErrorCode::RUNTIME_OPERATE_ERROR);
         printf(
           C_RED "[CAN_PROTOCOL][ERROR][%s] Operate CMD:\"%s\" sending data error 0\n" C_END,
-          this->name_.c_str(), CMD.c_str());
+          this->out_name_.c_str(), CMD.c_str());
       }
     } else {
       canfd_frame tx_frame;
@@ -121,7 +121,7 @@ public:
         this->error_clct_->LogState(ErrorCode::RUNTIME_OPERATE_ERROR);
         printf(
           C_RED "[CAN_PROTOCOL][ERROR][%s] Operate CMD:\"%s\" sending data error 1\n" C_END,
-          this->name_.c_str(), CMD.c_str());
+          this->out_name_.c_str(), CMD.c_str());
       }
     }
     return false;
@@ -133,7 +133,7 @@ public:
       printf(
         C_YELLOW "[CAN_PROTOCOL][WARN][%s] Protocol not in sending mode, "
         "should not send data from data class, except for test\n" C_END,
-        this->name_.c_str());
+        this->out_name_.c_str());
     }
     return can_parser_->Encode(this->protocol_data_map_, can_op_);
   }

@@ -203,7 +203,7 @@ timeout_us = 1000000
 # can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX)
 # var_name = "var_name_1"                   (string)
 # var_type = "float"                      
-#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool / u8_array)
 # parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
 # [optional] var_zoom = 1.0                 (float)
 # [optional] parser_type = "auto"           (bit / var / auto)
@@ -220,7 +220,7 @@ description = "this is example named example_var_1"
 [[var]]
 can_id = "0x0300'00'01"
 var_name = "example_var_2"
-var_type = "uint8"
+var_type = "u8"
 parser_param = [0, 7, 4]
 parser_type = "bit"
 description = "this is example named example_var_2"
@@ -275,12 +275,13 @@ description = "this is example named example_cmd_1"
     - `var_name` : 需要解析到的变量名称(即在代码中使用`LINK_VAR(var)`链接的变量名称)
     - `var_type` :
         - 需要解析的变量类型(即在代码中使用`LINK_VAR(var)`链接的变量类型)，在及其特殊情况下可使用不同类型(如将`u8`解析到代码中的`u16`)，但`size_of`的大小不能超过代码中的大小(即不可将`u64`解析到代码中的`u8`)
-        - 支持解析格式 : `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool`
+        - 支持解析格式 : `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool` / `u8_array`
     - `parser_param` : 解析参数，根据不同解析类型会存在不同长度
         - 以变量形式解析(即`parser_type = "var"`) :
             - `parser_param`为`array<uint8>[2]`，即长度为2的`uint8`数组，且满足`0 <= parser_param[0] <= parser_param[1] < MAX_CAN_LEN`，其中`MAX_CAN_LEN`在`STD_CAN`中为8，`FD_CAN`中为64
             - 解析时优先<u>以高位优先按二进制</u>解析原则将`can_data[parser_param[0]]`到`can_data[parser_param[1]]`以二进制形式合并为一个变量
             - `float`与`double`在特殊情况下先<u>以高位优先按二进制</u>的解析形式合并，再以<u>小数点精度缩放</u>的解析形式生成为一个变量
+            - `u8_array`仅可使用`以变量形式解析(即parser_type = "var")`，将数据中某一部分解析到u8数组中，详细解析见下方示例表格(`例8`)
             - 详细解析见下方示例表格(`例1`到`例3`)
         - 以位形式解析(即`parser_type = "bit"`) :
             - `parser_param`为`array<uint8>[3]`，即长度为3的`uint8`数组，且满足`0 <= parser_param[0] < MAX_CAN_LEN && 8 > parser_param[1] >= parser_param[2] >= 0`，其中`MAX_CAN_LEN`在`STD_CAN`中为8，`FD_CAN`中为64
@@ -291,7 +292,7 @@ description = "this is example named example_cmd_1"
         - 解析类型，可手动指定也可根据`parser_param.length()`自动推断
         - 支持解析类型 : `var` / `bit` / `auto(默认缺省值)`
     - [可选] `description` : 注释及使用描述
-- `data_array` : CAN协议数组解析规则
+- `data_array` : CAN协议分包数组解析规则
     - `can_package_num` : 预期接收的CAN数据帧数量
     - `can_id` : 预期接收作为数组值的CAN_ID数组
         - 手动指定所有CAN_ID(即`can_id.length() == can_package_num`) :
@@ -462,3 +463,22 @@ description = "this is example named example_cmd_1"
 > ```
 >
 > 该示例展示了以`cmd_1`携带`cmd_data`下发指令，即按照`ctrl_len`规定前4个u8都为控制段数据并装填入`ctrl_data`，但因数据不足后2个u8留空，剩下4个u8按传入参数`cmd_data`填入
+
+> 例8:
+> 
+> | 解析规则 | 数据 |
+> | :----: | :----: |
+> | var_name = "example_8" | can_data[0] = 0x12 |
+> | var_type = "u8_array"  | can_data[1] = 0x34 |
+> | parser_type = "var"    | can_data[2] = 0x56 |
+> | parser_param = [1, 3]  | can_data[3] = 0x78 |
+> 
+> 解析后等效代码为:
+> ```cpp
+> uint8 example_8[3];
+> example_8[0] = can_data[1];  // (0x34)
+> example_8[1] = can_data[2];  // (0x56)
+> example_8[2] = can_data[3];  // (0x78)
+> ```
+>
+> 该示例展示了以参数`[1, 3]`，即按照`can_data`数组`index`为`1`到`3`的顺序解析到`example_8`数组中

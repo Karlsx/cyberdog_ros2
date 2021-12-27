@@ -44,7 +44,7 @@ public:
     if (for_send_) {
       printf(
         C_YELLOW "[PROTOCOL][WARN][%s] for_send protocol not need callback function, "
-        "please check the code\n" C_END, name_.c_str());
+        "please check the code\n" C_END, out_name_.c_str());
     }
     if (callback != nullptr) {protocol_data_callback_ = callback;}
   }
@@ -55,7 +55,7 @@ public:
       error_clct_->LogState(ErrorCode::RUNTIME_SAMELINK_ERROR);
       printf(
         C_RED "[PROTOCOL][ERROR][%s] LINK_VAR error, get same name:\"%s\"\n" C_END,
-        name_.c_str(), name.c_str());
+        out_name_.c_str(), name.c_str());
       return;
     }
     protocol_data_map_.insert(std::pair<std::string, ProtocolData>(name, var));
@@ -83,7 +83,7 @@ protected:
 
   bool for_send_;
   bool rx_error_;
-  std::string name_;
+  std::string out_name_;
   CHILD_STATE_CLCT error_clct_;
   PROTOCOL_DATA_MAP protocol_data_map_;
   std::shared_ptr<TDataClass> protocol_data_;

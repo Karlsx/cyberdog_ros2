@@ -145,6 +145,14 @@ var_type = "u8"
 parser_type = "bit"
 parser_param = [3, 7, 4]
 
+[[var]]
+description = ""
+can_id = "0x308"
+var_name = "u8_array_3"
+var_type = "u8_array"
+parser_type = "var"
+parser_param = [4, 7]
+
 [[array]]
 description = ""
 can_package_num = 16

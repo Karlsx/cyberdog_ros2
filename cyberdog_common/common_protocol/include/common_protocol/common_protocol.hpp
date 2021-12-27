@@ -118,30 +118,34 @@ private:
 
   void Init(toml::value & toml_config, bool for_send, const std::string & protocol_toml_path = "")
   {
-    auto protocol = toml::find_or<std::string>(toml_config, "protocol", "#unknow");
-    auto name = toml::find_or<std::string>(toml_config, "name", "#unknow");
+    auto protocol_name = toml::find_or<std::string>(toml_config, "protocol", "#unknow");
+    auto out_name = toml::find_or<std::string>(toml_config, "name", "#unknow");
     if (protocol_toml_path != "") {
       printf(
         "[PROTOCOL][INFO] Creat common protocol[%s], protocol:\"%s\", path:\"%s\"\n",
-        name.c_str(), protocol.c_str(), protocol_toml_path.c_str());
+        out_name.c_str(), protocol_name.c_str(), protocol_toml_path.c_str());
     }
 
-    if (protocol == "can") {
+    if (protocol_name == "can") {
       base_ = std::make_shared<CanProtocol<TDataClass>>(
-        error_clct_.CreatChild(), name, toml_config, for_send);
-    } else if (protocol == "spi") {
+        error_clct_.CreatChild(), out_name, toml_config, for_send);
+    } else if (protocol_name == "spi") {
       // todo when need
       error_clct_.LogState(ErrorCode::ILLEGAL_PROTOCOL);
-      printf(C_RED "[PROTOCOL][ERROR] protocol:\"%s\" not support yet\n" C_END, protocol.c_str());
-    } else if (protocol == "iic" || protocol == "i2c") {
+      printf(
+        C_RED "[PROTOCOL][ERROR] protocol:\"%s\" not support yet\n" C_END,
+        protocol_name.c_str());
+    } else if (protocol_name == "iic" || protocol_name == "i2c") {
       // todo when need
       error_clct_.LogState(ErrorCode::ILLEGAL_PROTOCOL);
-      printf(C_RED "[PROTOCOL][ERROR] protocol:\"%s\" not support yet\n" C_END, protocol.c_str());
+      printf(
+        C_RED "[PROTOCOL][ERROR] protocol:\"%s\" not support yet\n" C_END,
+        protocol_name.c_str());
     } else {
       error_clct_.LogState(ErrorCode::ILLEGAL_PROTOCOL);
       printf(
         C_RED "[PROTOCOL][ERROR][%s] protocol:\"%s\" not support, parser path=\"%s\"\n" C_END,
-        name.c_str(), protocol.c_str(), protocol_toml_path.c_str());
+        out_name.c_str(), protocol_name.c_str(), protocol_toml_path.c_str());
     }
   }
 };  // class Protocol

@@ -222,3 +222,10 @@ can_id = "0x3FF"
 var_name = "u8_var_4"
 var_type = "u8"
 parser_param = [0, 0, 5, 5]
+
+[[var]]
+description = ""
+can_id = "0x5AF"
+var_name = "u8_array_1"
+var_type = "u8_array"
+parser_param = [0, 5, 0]

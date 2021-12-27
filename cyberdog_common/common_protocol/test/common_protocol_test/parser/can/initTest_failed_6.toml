@@ -59,6 +59,13 @@ var_type = "float"
 var_zoom = 0.01
 parser_param = [0, 2]
 
+[[var]]
+description = ""
+can_id = "0x3B5"
+var_name = "u8_array_3"
+var_type = "u8_array"
+parser_param = [0, 7]
+
 [[array]]
 description = ""
 can_package_num = 17
@@ -88,5 +95,12 @@ ctrl_data = ["0x06", "0x13"]
 description = ""
 cmd_name = "CMD_1"
 can_id = "0x3f7"
+ctrl_len = 2
+ctrl_data = ["0x06", "0x13"]
+
+[[cmd]]
+description = ""
+cmd_name = "CMD_3"
+can_id = "0x3b5"
 ctrl_len = 2
 ctrl_data = ["0x06", "0x13"]

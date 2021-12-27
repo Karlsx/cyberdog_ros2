@@ -46,6 +46,7 @@ public:
   uint8_t u8_4_bit;
   uint8_t u8_array_1[128];
   uint8_t u8_array_2[64];
+  uint8_t u8_array_3[4];
 
   bool EQ(const testing_full_var & data, float kp)
   {
@@ -72,6 +73,9 @@ public:
     }
     for (uint a = 0; a < sizeof(u8_array_2); a++) {
       if (u8_array_2[a] != data.u8_array_2[a]) {return false;}
+    }
+    for (uint a = 0; a < sizeof(u8_array_3); a++) {
+      if (u8_array_3[a] != data.u8_array_3[a]) {return false;}
     }
     return true;
   }
@@ -102,6 +106,9 @@ public:
     for (uint a = 0; a < sizeof(u8_array_2); a++) {
       u8_array_2[a] = data.u8_array_2[a];
     }
+    for (uint a = 0; a < sizeof(u8_array_3); a++) {
+      u8_array_3[a] = data.u8_array_3[a];
+    }
   }
 
   void init_type_1()
@@ -130,6 +137,9 @@ public:
     for (uint a = 0; a < sizeof(u8_array_2); a++) {
       u8_array_2[a] = 4 * a;
     }
+    for (uint a = 0; a < sizeof(u8_array_3); a++) {
+      u8_array_3[a] = 8 * a;
+    }
   }
 
   void init_type_2()
@@ -157,6 +167,9 @@ public:
     }
     for (uint a = 0; a < sizeof(u8_array_2); a++) {
       u8_array_2[a] = 3 * a;
+    }
+    for (uint a = 0; a < sizeof(u8_array_3); a++) {
+      u8_array_3[a] = 9 * a;
     }
   }
 };
@@ -193,6 +206,7 @@ std::shared_ptr<EVM::Protocol<testing_full_var>> CreatDevice(
   p->LINK_VAR(p->GetData()->u8_4_bit);
   p->LINK_VAR(p->GetData()->u8_array_1);
   p->LINK_VAR(p->GetData()->u8_array_2);
+  p->LINK_VAR(p->GetData()->u8_array_3);
   p->SetDataCallback(callback);
   return p;
 }
@@ -356,14 +370,14 @@ TEST(CommonProtocolTest_CAN, initTest_failed_3) {
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::DATA_AREA_CONFLICT), 4U);
   ASSERT_GE(CLCT(EVM::ErrorCode::CAN_ID_OUTOFRANGE), 1U);
-  ASSERT_GE(CLCT(EVM::ErrorCode::TOML_TYPE_ERROR), 3U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::TOML_TYPE_ERROR), 4U);
   ASSERT_GE(CLCT(EVM::ErrorCode::HEXTOUINT_ILLEGAL_CHAR), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::HEXTOUINT_ILLEGAL_START), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULE_SAMENAME_ERROR), 2U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULEVAR_ILLEGAL_PARSERTYPE), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_SIZE), 9U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE), 11U);
-  ASSERT_GE(CLCT(EVM::ErrorCode::RULEVAR_ILLEGAL_VARTYPE), 1U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RULEVAR_ILLEGAL_VARTYPE), 3U);
 }
 
 // Testing array error
@@ -417,6 +431,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_6) {
   ASSERT_TRUE(dv->Operate("CMD_1"));
   ASSERT_FALSE(dv->Operate("CMD_1", std::vector<uint8_t>(8)));
   ASSERT_FALSE(dv->Operate("CMD_2"));
+  ASSERT_TRUE(dv->Operate("CMD_3"));
   ASSERT_FALSE(dv->SendSelfData());
 
   clct.PrintfAllStateStr();
@@ -427,8 +442,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_6) {
   ASSERT_GE(CLCT(EVM::ErrorCode::DOUBLE_SIMPLIFY_ERROR), 2U);
   ASSERT_GE(CLCT(EVM::ErrorCode::FLOAT_SIMPLIFY_ERROR), 4U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_UNEXPECT_ORDERPACKAGE), 1U);
-  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZEOVERFLOW), 1U);
-  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZENOTMATCH), 1U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZEOVERFLOW), 3U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZENOTMATCH), 2U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_OPERATE_ERROR), 2U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_NOLINK_ERROR), 7U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SAMELINK_ERROR), 2U);
@@ -482,7 +497,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_7) {
     0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
   });
   ASSERT_NE(callback_data_testing_var, nullptr);
-  ASSERT_NE(callback_data_testing_var->u64_var, 0xA1A2A3A4A5A6A7A8U);
+  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2B3B4B5B6B7B8U);
   for (int a = 0; a < 8; a++) {
     ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xC1U + a);
   }
@@ -499,7 +514,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_8) {
   ASSERT_FALSE(dv->Operate("start"));
 
   clct.PrintfAllStateStr();
-  ASSERT_GE(CLCT(EVM::ErrorCode::CAN_STD_SEND_ERROR), 34U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::CAN_STD_SEND_ERROR), 35U);
 }
 
 // Testing normal usage FD_CAN with extended_frame send error
@@ -512,7 +527,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_9) {
   ASSERT_FALSE(dv->Operate("start"));
 
   clct.PrintfAllStateStr();
-  ASSERT_GE(CLCT(EVM::ErrorCode::CAN_FD_SEND_ERROR), 14U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::CAN_FD_SEND_ERROR), 15U);
 }
 
 int main(int argc, char ** argv)

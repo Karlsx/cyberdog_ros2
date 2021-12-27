@@ -45,9 +45,8 @@ namespace common
 
 using StateMap = std::map<STATE_CODE_TYPE, STATE_CODE_TIMES>;
 
-std::set<std::string> common_type =
-  std::set<std::string> {"float", "double", "i64", "i32", "i16", "i8", "u64", "u32", "u16",
-  "u8", "bool"};
+std::set<std::string> common_type = std::set<std::string> {
+  "float", "double", "i64", "i32", "i16", "i8", "u64", "u32", "u16", "u8", "bool", "u8_array"};
 
 enum ErrorCode
 {
@@ -99,14 +98,14 @@ enum ErrorCode
 class ProtocolData
 {
 public:
-  ProtocolData(uint8_t len, void * addr)
+  ProtocolData(uint16_t len, void * addr)
   {
     this->len = len;
     this->addr = addr;
     loaded = false;
     array_expect = 0;
   }
-  uint8_t len;
+  uint16_t len;
   void * addr;
   bool loaded;
   int array_expect;
@@ -118,6 +117,8 @@ public:
   StateCollector() {}
   explicit StateCollector(STATE_CODE_TYPE state_code) {LogState(state_code);}
   void LogState(STATE_CODE_TYPE state_code) {LogState(state_code, 1);}
+
+  const StateMap & GetSelfStateMap() {return state_map_;}
   StateMap GetAllStateMap()
   {
     auto all = StateMap();
@@ -131,17 +132,19 @@ public:
     }
     return all;
   }
-  const StateMap & GetSelfStateMap() {return state_map_;}
+
+  void ClearSelfState() {state_map_.clear();}
   void ClearAllState()
   {
     ClearSelfState();
     for (auto & child : children_) {child->ClearAllState();}
   }
-  void ClearSelfState() {state_map_.clear();}
+
   unsigned int GetSelfStateTypeNum()
   {
     return static_cast<unsigned int>(state_map_.size());
   }
+
   unsigned int GetAllStateTypeNum()
   {
     unsigned int num = 0;
@@ -149,12 +152,14 @@ public:
     for (auto & child : children_) {num += child->GetAllStateTypeNum();}
     return num;
   }
+
   unsigned int GetSelfStateTimesNum()
   {
     unsigned int num = 0;
     for (auto & pair : state_map_) {num += pair.second;}
     return num;
   }
+
   unsigned int GetAllStateTimesNum()
   {
     unsigned int num = 0;
@@ -162,10 +167,12 @@ public:
     for (auto & child : children_) {num += child->GetAllStateTimesNum();}
     return num;
   }
+
   unsigned int GetSelfStateTimesNum(STATE_CODE_TYPE state_code)
   {
     return (state_map_.find(state_code) == state_map_.end()) ? 0 : state_map_.at(state_code);
   }
+
   unsigned int GetAllStateTimesNum(STATE_CODE_TYPE state_code)
   {
     unsigned int num = 0;
@@ -173,6 +180,7 @@ public:
     for (auto & child : children_) {num += child->GetAllStateTimesNum(state_code);}
     return num;
   }
+
   void PrintfSelfStateStr()
   {
     if (state_map_.size() == 0) {printf("[STATE_COLLECTOR] NoStateCode\n");} else {
@@ -182,6 +190,7 @@ public:
       printf("[STATE_COLLECTOR] StateCode[%3d]-times:%d\n", a.first, a.second);
     }
   }
+
   void PrintfAllStateStr()
   {
     auto all_map = GetAllStateMap();
@@ -202,6 +211,7 @@ public:
 private:
   StateMap state_map_ = StateMap();
   std::vector<CHILD_STATE_CLCT> children_ = std::vector<CHILD_STATE_CLCT>();
+
   void LogState(STATE_CODE_TYPE state_code, uint8_t state_times)
   {
     auto it = state_map_.find(state_code);
@@ -275,17 +285,25 @@ unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct)
   return id;
 }
 
+std::string UINTto8HEX(unsigned int hex)
+{
+  char str[11];
+  snprintf(str, 11, "0x%08x", hex);
+  return std::string(str);
+}
+
 bool CanidRangeCheck(
-  uint can_id, bool extended,
-  const std::string & name,
+  uint can_id,
+  bool extended,
+  const std::string & out_name,
   const std::string & sub_name,
   CHILD_STATE_CLCT clct)
 {
   if (can_id > (extended ? CAN_EXT_MAX_ID : CAN_STD_MAX_ID)) {
     if (clct != nullptr) {clct->LogState(ErrorCode::CAN_ID_OUTOFRANGE);}
     printf(
-      C_RED "[CAN_PARSER][ERROR][%s][%s] CAN_ID:0x%x out of range, %s\n" C_END,
-      name.c_str(), sub_name.c_str(), can_id, std::string(
+      C_RED "[PARSER_BASE][ERROR][%s][name:%s] CAN_ID:0x%x out of range, %s\n" C_END,
+      out_name.c_str(), sub_name.c_str(), can_id, std::string(
         extended ? "Extend ID:(0x0000'0000~0x1FFF'FFFF)" :
         "Stand ID:(0x000~0x7FF)").c_str());
     return false;

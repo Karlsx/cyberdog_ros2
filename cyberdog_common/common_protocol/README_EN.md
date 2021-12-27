@@ -203,7 +203,7 @@ timeout_us = 1000000
 # can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX)
 # var_name = "var_name_1"                   (string)
 # var_type = "float"                      
-#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool / u8_array)
 # parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
 # [optional] var_zoom = 1.0                 (float)
 # [optional] parser_type = "auto"           (bit / var / auto)
@@ -220,7 +220,7 @@ description = "this is example named example_var_1"
 [[var]]
 can_id = "0x0300'00'01"
 var_name = "example_var_2"
-var_type = "uint8"
+var_type = "u8"
 parser_param = [0, 7, 4]
 parser_type = "bit"
 description = "this is example named example_var_2"
@@ -275,12 +275,13 @@ Parsing:
     - `var_name`: The name of the variable that needs to be resolved (that is, the name of the variable linked with `LINK_VAR(var)` in the code)
     - `var_type`:
         - The variable type that needs to be resolved (that is, the variable type linked by `LINK_VAR(var)` in the code), and different types can be used in special circumstances (such as parsing `u8` to `u16` in the code), But the size of `size_of` cannot exceed the size in the code (that is, `u64` cannot be parsed into `u8` in the code)
-        - Support parse format: `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool`
+        - Support parse format: `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool` / `u8_array`
     - `parser_param`: parse parameters, there will be different lengths according to different parse types
         - Parse as a variable (ie `parser_type = "var"`):
             - `parser_param` is `array<uint8>[2]`, which is a `uint8` array of length 2 and satisfies `0 <= parser_param[0] <= parser_param[1] < MAX_CAN_LEN`, where `MAX_CAN_LEN` is in 8 in `STD_CAN`, 64 in `FD_CAN`
             - Priority during parsing <u>High order priority in binary</u> The parsing principle combines `can_data[parser_param[0]]` to `can_data[parser_param[1]]` in binary form into one variable
             - `float` and `double` are first merged in the analytical form of <u>high-order first in binary</u> under special circumstances, and then generated into a variable in the analytical form of <u>decimal point precision scaling</u>
+            - `u8_array` can only be parsed `in variable form (ie parser_type = "var")`, and a certain part of the data is parsed into the u8 array. For detailed analysis, see the example table below (`example 8`)
             - See the example table below for detailed analysis (`example 1` to `example 3`)
         - Parse in bit form (ie `parser_type = "bit"`):
             - `parser_param` is `array<uint8>[3]`, which is an array of `uint8` with a length of 3, and satisfies `0 <= parser_param[0] < MAX_CAN_LEN && 8 > parser_param[1] >= parser_param[ 2] >= 0`, where `MAX_CAN_LEN` is 8 in `STD_CAN` and is 64 in `FD_CAN`
@@ -291,7 +292,7 @@ Parsing:
         - The type of parsing can be specified manually or inferred automatically based on `parser_param.length()`
         - Support analysis type: `var` / `bit` / `auto (default default value)`
     - [Optional] `description`: Notes and usage description
-- `data_array`: CAN protocol array parsing rules
+- `data_array`: CAN protocol sub-packet array parsing rules
     - `can_package_num`: The expected number of CAN data frames received
     - `can_id`: Expected to receive CAN_ID array as array value
         - Manually specify all CAN_IDs (i.e. `can_id.length() == can_package_num`):
@@ -462,3 +463,22 @@ Example set:
 > ```
 >
 > This example shows using `cmd_1` to carry `cmd_data` to issue instructions, that is, according to `ctrl_len`, the first 4 u8s are all control section data and are filled with `ctrl_data`, but 2 u8s are left blank due to insufficient data , The remaining 4 u8 are filled in according to the incoming parameter `cmd_data`
+
+> Example 8:
+> 
+> | Analysis Rules | Data |
+> | :----: | :----: |
+> | var_name = "example_8" | can_data[0] = 0x12 |
+> | var_type = "u8_array"  | can_data[1] = 0x34 |
+> | parser_type = "var"    | can_data[2] = 0x56 |
+> | parser_param = [1, 3]  | can_data[3] = 0x78 |
+> 
+> The equivalent code after use is:
+> ```cpp
+> uint8 example_8[3];
+> example_8[0] = can_data[1];  // (0x34)
+> example_8[1] = can_data[2];  // (0x56)
+> example_8[2] = can_data[3];  // (0x78)
+> ```
+>
+> This example shows that the parameter `[1, 3]` is parsed into the `example_8` array in the order of `can_data` array `index` from `1` to `3`

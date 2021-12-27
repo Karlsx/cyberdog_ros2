@@ -1,0 +1,36 @@
+# -- common params -- #
+# protocol = "uart"          (string)
+# name = "uart_device_name"  (string)
+protocol = "uart"
+name = "uart_device_name"
+
+# -- uart params -- #
+# uart_interface = "/dev/ttyS0"
+# [optional] timeout_us = 3'000'000  (int64)
+
+# -- frame_def -- #
+# [[frame]]
+# frame_name = "frame_name_1"  (string)
+# [optional] frame_start = 
+# [optional] frame_end = 
+# [optional] frame_crc = 
+
+
+# -- data_var -- #
+# [[var]]
+# frame = "frame_name_1"                    (string)
+# var_name = "var_name_1"                   (string)
+# var_type = "float"                      
+#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+# parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
+# [optional] var_zoom = 1.0                 (float)
+# [optional] parser_type = "auto"           (bit / var / auto)
+# [optional] description = ""               (string)
+
+[[var]]
+
+var_name = "example_var_1"
+var_type = "double"
+parser_param = [0, 7]
+var_zoom = 0.0001
+description = "this is example named example_var_1"
