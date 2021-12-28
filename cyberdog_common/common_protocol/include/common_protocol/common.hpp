@@ -66,6 +66,11 @@ enum ErrorCode
   HEXTOUINT_ILLEGAL_CHAR,
   HEXTOUINT_ILLEGAL_START,
 
+  RULEFRAME_ILLEGAL_FRAMENAME,
+  RULEFRAME_SAMEFRAMENAME_ERROR,
+  RULEFRAME_SAMEFRAMEID_ERROR,
+
+  // ********************************* //
   RULE_SAMENAME_ERROR,
 
   RULEVAR_ILLEGAL_PARSERTYPE,
@@ -77,6 +82,7 @@ enum ErrorCode
   RULEARRAY_ILLEGAL_ARRAYNAME,
   RULEARRAY_SAMECANID_ERROR,
   RULEARRAY_ILLEGAL_PARSERPARAM_VALUE,
+  // ********************************* //
 
   RULECMD_ILLEGAL_CMDNAME,
   RULECMD_CTRLDATA_ERROR,
@@ -93,6 +99,7 @@ enum ErrorCode
   RUNTIME_NOLINK_ERROR,
   RUNTIME_SAMELINK_ERROR,
   RUNTIME_ILLEGAL_LINKVAR,
+  RUNTIME_NOFRAMEID_ERROR
 };
 
 class ProtocolData
@@ -103,12 +110,10 @@ public:
     this->len = len;
     this->addr = addr;
     loaded = false;
-    array_expect = 0;
   }
   uint16_t len;
   void * addr;
   bool loaded;
-  int array_expect;
 };  // class ProtocolData
 
 class StateCollector
@@ -223,7 +228,7 @@ private:
   }
 };  // class StateCollector
 
-std::string get_var_name(const std::string & full_name, StateCollector & clct)
+std::string GetVarName(const std::string & full_name, StateCollector & clct)
 {
   bool get = false;
   bool start = false;

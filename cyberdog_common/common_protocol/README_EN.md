@@ -227,19 +227,19 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# can_package_num = 8          (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[can_package_num])
+# package_num = 8          (size_t)
+# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[package_num])
 # array_name = "array_name_1"  (string)
 # [optional] description = ""  (string)
 
 [[array]]
-can_package_num = 8
+package_num = 8
 can_id = ["0x200", "0x207"]
 array_name = "example_array_1"
 description = "this is example named example_array_1"
 
 [[array]]
-can_package_num = 4
+package_num = 4
 can_id = ["0x200", "0x201", "0x202", "0x203"]
 array_name = "example_array_2"
 description = "this is example named example_array_2"
@@ -293,13 +293,13 @@ Parsing:
         - Support analysis type: `var` / `bit` / `auto (default default value)`
     - [Optional] `description`: Notes and usage description
 - `data_array`: CAN protocol sub-packet array parsing rules
-    - `can_package_num`: The expected number of CAN data frames received
+    - `package_num`: The expected number of CAN data frames received
     - `can_id`: Expected to receive CAN_ID array as array value
-        - Manually specify all CAN_IDs (i.e. `can_id.length() == can_package_num`):
-            - `can_id` is `array<string-HEX>[can_package_num]`, which is a `hexadecimal string` with length `can_package_num`
+        - Manually specify all CAN_IDs (i.e. `can_id.length() == package_num`):
+            - `can_id` is `array<string-HEX>[package_num]`, which is a `hexadecimal string` with length `package_num`
             - All data will be filled in the order of the array `index` according to the specified CAN_ID order, that is, the `index` in `can_id` can be queried by CAN_ID, and the filling will be carried out based on `array[index * 8]`
             - See the example table below for detailed analysis (`Example 5`)
-        - Automatically specify continuous CAN_ID (ie `can_id.length() != can_package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
+        - Automatically specify continuous CAN_ID (ie `can_id.length() != package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
             - `can_id` is `array<string-HEX>[2]`, which is a `hexadecimal string` of length 2
             - All data will be filled in the order of the array `index` according to the specified CAN_ID order, that is, the `index` in `can_id` can be queried by CAN_ID, and the filling will be carried out based on `array[index * 8]`
             - See the example table below for detailed analysis (`Example 6`)
@@ -389,7 +389,7 @@ Example set:
 > 
 > | Analysis Rules | 0x200 | 0x201 | 0x2FF |
 > | :----: | :----: | :----: | :----: |
-> | can_package_num = 3                  | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | package_num = 3                  | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x201", "0x2FF", "0x200"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_5               | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                                      | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |
@@ -413,7 +413,7 @@ Example set:
 > 
 > | Analysis Rules | 0x200 | 0x201 | 0x202 |
 > | :----: | :----: | :----: | :----: |
-> | can_package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x200", "0x202"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_6      | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                             | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |

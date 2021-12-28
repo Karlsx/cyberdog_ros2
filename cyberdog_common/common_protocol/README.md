@@ -227,19 +227,19 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# can_package_num = 8          (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[can_package_num])
+# package_num = 8          (size_t)
+# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[package_num])
 # array_name = "array_name_1"  (string)
 # [optional] description = ""  (string)
 
 [[array]]
-can_package_num = 8
+package_num = 8
 can_id = ["0x200", "0x207"]
 array_name = "example_array_1"
 description = "this is example named example_array_1"
 
 [[array]]
-can_package_num = 4
+package_num = 4
 can_id = ["0x200", "0x201", "0x202", "0x203"]
 array_name = "example_array_2"
 description = "this is example named example_array_2"
@@ -293,13 +293,13 @@ description = "this is example named example_cmd_1"
         - 支持解析类型 : `var` / `bit` / `auto(默认缺省值)`
     - [可选] `description` : 注释及使用描述
 - `data_array` : CAN协议分包数组解析规则
-    - `can_package_num` : 预期接收的CAN数据帧数量
+    - `package_num` : 预期接收的CAN数据帧数量
     - `can_id` : 预期接收作为数组值的CAN_ID数组
-        - 手动指定所有CAN_ID(即`can_id.length() == can_package_num`) :
-            - `can_id`为`array<string-HEX>[can_package_num]`，即长度为`can_package_num`的`十六进制字符串`
+        - 手动指定所有CAN_ID(即`can_id.length() == package_num`) :
+            - `can_id`为`array<string-HEX>[package_num]`，即长度为`package_num`的`十六进制字符串`
             - 所有数据将依照所指定的CAN_ID顺序，以数组`index`顺序装填，即通过CAN_ID查询在`can_id`中的`index`，按`array[index * 8]`为基准进行装填
             - 详细解析见下方示例表格(`例5`)
-        - 自动指定连续CAN_ID(即`can_id.length() ！= can_package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
+        - 自动指定连续CAN_ID(即`can_id.length() ！= package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
             - `can_id`为`array<string-HEX>[2]`，即长度为2的`十六进制字符串`
             - 所有数据将依照所指定的CAN_ID顺序，以数组`index`顺序装填，即通过CAN_ID查询在`can_id`中的`index`，按`array[index * 8]`为基准进行装填
             - 详细解析见下方示例表格(`例6`)
@@ -389,7 +389,7 @@ description = "this is example named example_cmd_1"
 > 
 > | 解析规则 | 0x200 | 0x201 | 0x2FF |
 > | :----: | :----: | :----: | :----: |
-> | can_package_num = 3                  | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | package_num = 3                  | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x201", "0x2FF", "0x200"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_5               | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                                      | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |
@@ -413,7 +413,7 @@ description = "this is example named example_cmd_1"
 > 
 > | 解析规则 | 0x200 | 0x201 | 0x202 |
 > | :----: | :----: | :----: | :----: |
-> | can_package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x200", "0x202"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_6      | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                             | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |

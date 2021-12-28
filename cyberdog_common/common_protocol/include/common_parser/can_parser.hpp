@@ -47,39 +47,29 @@ public:
     {
       frame_id = HEXtoUINT(toml_at<std::string>(table, "can_id", error_clct), error_clct);
       CanidRangeCheck(frame_id, extended, out_name, var_name, error_clct);
-      str_frame_id = UINTto8HEX(frame_id);
     }
   };  // class VarRuleCan
 
-  class ArrayRuleCan
+  class ArrayRuleCan : public ArrayRuleBase
   {
 public:
     explicit ArrayRuleCan(
       CHILD_STATE_CLCT clct,
       bool extended,
       const toml::table & table,
-      const std::string & out_name,
-      const std::string & parser_name)
+      const std::string & out_name)
+    : ArrayRuleBase(clct, table, out_name, PARSER_NAME_CAN)
     {
-      error_clct = clct;
-      warn_flag = false;
-      can_package_num = toml_at<size_t>(table, "can_package_num", error_clct);
-      array_name = toml_at<std::string>(table, "array_name", error_clct);
-      if (array_name == "") {
-        error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_ARRAYNAME);
-        printf(
-          C_RED "[%s_PARSER][ERROR][%s] array_name error, not support empty string\n" C_END,
-          parser_name.c_str(), out_name.c_str());
-      }
+      std::string parser_name = PARSER_NAME_CAN;
       auto tmp_can_id = toml_at<std::vector<std::string>>(table, "can_id", error_clct);
       auto canid_num = tmp_can_id.size();
-      if (canid_num == can_package_num) {
+      if (canid_num == package_num) {
         int index = 0;
         for (auto & single_id : tmp_can_id) {
           canid_t canid = HEXtoUINT(single_id, error_clct);
           CanidRangeCheck(canid, extended, out_name, array_name, error_clct);
-          if (can_id.find(canid) == can_id.end()) {
-            can_id.insert(std::pair<canid_t, int>(canid, index++));
+          if (frameID_map.find(canid) == frameID_map.end()) {
+            frameID_map.insert(std::pair<canid_t, int>(canid, index++));
           } else {
             error_clct->LogState(ErrorCode::RULEARRAY_SAMECANID_ERROR);
             printf(
@@ -91,7 +81,7 @@ public:
         // continuous check
         bool first = true;
         canid_t last_id;
-        for (auto & id : can_id) {
+        for (auto & id : frameID_map) {
           if (first == true) {
             first = false;
             last_id = id.first;
@@ -106,43 +96,30 @@ public:
             break;
           }
         }
-      } else if (can_package_num > 2 && canid_num == 2) {
+      } else if (package_num > 2 && canid_num == 2) {
         canid_t start_id = HEXtoUINT(tmp_can_id[0], error_clct);
         canid_t end_id = HEXtoUINT(tmp_can_id[1], error_clct);
-        if (end_id - start_id + 1 == can_package_num) {
+        if (end_id - start_id + 1 == package_num) {
           int index = 0;
           for (canid_t a = start_id; a <= end_id; a++) {
-            can_id.insert(std::pair<canid_t, int>(a, index++));
+            frameID_map.insert(std::pair<canid_t, int>(a, index++));
           }
         } else {
           error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
           printf(
             C_RED "[%s_PARSER][ERROR][%s][array:%s] simple array method must follow: "
-            "(canid low to high) and (high - low + 1 == can_package_num)\n" C_END,
+            "(canid low to high) and (high - low + 1 == package_num)\n" C_END,
             parser_name.c_str(), out_name.c_str(), array_name.c_str());
         }
       } else {
         error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
         printf(
           C_RED "[%s_PARSER][ERROR][%s][array:%s] toml_array:\"can_id\" length not match "
-          "can_package_num, toml_array:\"can_id\" length=%ld but can_package_num=%ld\n" C_END,
-          parser_name.c_str(), out_name.c_str(), array_name.c_str(), canid_num, can_package_num);
+          "package_num, toml_array:\"can_id\" length=%ld but package_num=%ld\n" C_END,
+          parser_name.c_str(), out_name.c_str(), array_name.c_str(), canid_num, package_num);
       }
     }
-    CHILD_STATE_CLCT error_clct;
-    bool warn_flag;
-    size_t can_package_num;
-    std::map<canid_t, int> can_id;
-    std::string array_name;
-
-    inline int get_offset(canid_t canid)
-    {
-      if (can_id.find(canid) != can_id.end()) {
-        return can_id.at(canid);
-      }
-      return -1;
-    }
-  }; // class ArrayRuleBase
+  }; // class ArrayRuleCan
 
   class CmdRuleCan : public CmdRuleBase
   {
@@ -179,28 +156,46 @@ public:
       toml_config, "cmd",
       std::vector<toml::table>());
 
-    CrectCheck();
+    CreateCheck();
     // get var rule
     for (auto & var : var_list) {
       auto rule = VarRuleCan(error_clct_->CreatChild(), CAN_LEN(), extended_, var, out_name_);
-      InitVar(rule, CAN_LEN());
+      if (rule.error_clct->GetAllStateTimesNum() == 0) {
+        auto frame = FrameRuleBase(
+          error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(rule.frame_id), rule.frame_id);
+        InitFrame(frame, false);
+      }
+      InitVar(rule);
     }
     // get array rule
     for (auto & array : array_list) {
       auto single_array = ArrayRuleCan(
-        error_clct_->CreatChild(), extended_, array, out_name_, PARSER_NAME_CAN);
+        error_clct_->CreatChild(), extended_, array, out_name_);
       if (single_array.warn_flag) {warn_num_++;}
       if (single_array.error_clct->GetSelfStateTimesNum() == 0) {
         // check error and warning
-        if (same_var_error(single_array.array_name)) {continue;}
-        check_data_area_error(single_array);
+        if (IsSameVarError(single_array.array_name)) {continue;}
+        CheckDataConflict(single_array);
+        single_array.all_max_len = 0;
+        for (auto & a : single_array.frameID_map) {
+          auto frame_id = a.first;
+          single_array.all_max_len += CAN_LEN();
+          auto frame = FrameRuleBase(
+            error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(frame_id), frame_id);
+          InitFrame(frame, false);
+        }
         parser_array_.push_back(single_array);
       }
     }
     // get cmd rule
     for (auto & cmd : cmd_list) {
       auto rule = CmdRuleCan(error_clct_->CreatChild(), extended_, cmd, out_name_);
-      InitCmd(rule, CAN_LEN());
+      if (rule.error_clct->GetAllStateTimesNum() == 0) {
+        auto frame = FrameRuleBase(
+          error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(rule.frame_id), rule.frame_id);
+        InitFrame(frame, false);
+      }
+      InitCmd(rule);
     }
     ClearCheck();
   }
@@ -212,7 +207,7 @@ public:
   {
     auto recv_list = std::vector<canid_t>();
     for (auto & a : parser_var_map_) {recv_list.push_back(a.first);}
-    for (auto & a : parser_array_) {for (auto & b : a.can_id) {recv_list.push_back(b.first);}}
+    for (auto & a : parser_array_) {for (auto & b : a.frameID_map) {recv_list.push_back(b.first);}}
     return recv_list;
   }
 
@@ -332,7 +327,7 @@ public:
         continue;
       }
       const ProtocolData * const var = &protocol_data_map.at(array_name);
-      int frame_num = static_cast<int>(rule.can_id.size());
+      int frame_num = static_cast<int>(rule.frameID_map.size());
       if (frame_num * CAN_LEN() != var->len) {
         error_flag = true;
         error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
@@ -342,7 +337,7 @@ public:
           parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
       }
       auto ids = std::vector<canid_t>(frame_num);
-      for (auto & a : rule.can_id) {ids[a.second] = a.first;}
+      for (auto & a : rule.frameID_map) {ids[a.second] = a.first;}
       uint8_t * protocol_array = static_cast<uint8_t *>(var->addr);
       for (int index = frame_index; index < frame_num; index++) {
         *can_id = ids[index];
@@ -384,18 +379,19 @@ private:
   // return true when finish all package
   bool Decode(
     PROTOCOL_DATA_MAP & protocol_data_map,
-    canid_t can_id,
+    T_FRAMEID frame_id,
     uint8_t * raw_data,
     bool & error_flag)
   {
-    DecodeVar(protocol_data_map, can_id, raw_data, error_flag);
+    DecodeVar(protocol_data_map, frame_id, raw_data, error_flag);
     // array decode
     for (auto & rule : parser_array_) {
-      auto offset = rule.get_offset(can_id);
+      auto offset = rule.get_offset(frame_id);
       if (offset == -1) {continue;}
       if (protocol_data_map.find(rule.array_name) != protocol_data_map.end()) {
         ProtocolData * var = &protocol_data_map.at(rule.array_name);
-        if (var->len < rule.can_package_num * CAN_LEN()) {
+        size_t len = GetFrameDataLen(frame_id);
+        if (var->len < rule.all_max_len) {
           error_flag = true;
           error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
           printf(
@@ -403,33 +399,37 @@ private:
             parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str());
           continue;
         }
-        if (offset == var->array_expect) {
+        if (offset == rule.array_expect) {
           // main decode begin
           uint8_t * data_area = reinterpret_cast<uint8_t *>(var->addr);
-          data_area += offset * CAN_LEN();
-          for (int a = 0; a < static_cast<int>(CAN_LEN()); a++) {
+          data_area += rule.waiting_index;
+          for (int a = 0; a < static_cast<int>(len); a++) {
             data_area[a] = raw_data[a];
           }
-          var->array_expect++;
-          if (offset == static_cast<int>(rule.can_package_num) - 1) {
+          rule.array_expect++;
+          rule.waiting_index += len;
+          if (offset == static_cast<int>(rule.package_num) - 1) {
             var->loaded = true;
-            var->array_expect = 0;
+            rule.array_expect = 0;
+            rule.waiting_index = 0;
           }
         } else {
-          canid_t expect_id = 0x0;
-          for (auto & id : rule.can_id) {
-            if (id.second == var->array_expect) {
+          T_FRAMEID expect_id = 0x0;
+          for (auto & id : rule.frameID_map) {
+            if (id.second == rule.array_expect) {
               expect_id = id.first;
               break;
             }
           }
-          var->array_expect = 0;
+          rule.array_expect = 0;
+          rule.waiting_index = 0;
           error_flag = true;
           error_clct_->LogState(ErrorCode::RUNTIME_UNEXPECT_ORDERPACKAGE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\", expect can frame 0x%x, "
-            "but get 0x%x, reset expect can_id and you need send array in order\n" C_END,
-            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(), expect_id, can_id);
+            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\", expect frame:\"%s\", "
+            "but get \"%s\", reset expect frame_id and you need send array in order\n" C_END,
+            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(),
+            GetFrameName(expect_id).c_str(), GetFrameName(frame_id).c_str());
         }
       } else {
         error_flag = true;
@@ -478,15 +478,15 @@ private:
     }
   }
 
-  void check_data_area_error(ArrayRuleCan & rule)
+  void CheckDataConflict(ArrayRuleCan & rule)
   {
-    for (auto & can_id : rule.can_id) {
+    for (auto & can_id : rule.frameID_map) {
       if (data_check_->find(can_id.first) == data_check_->end()) {
         data_check_->insert(
           std::pair<canid_t, std::vector<uint8_t>>(
             can_id.first, std::vector<uint8_t>(CAN_LEN())));
       }
-      var_area_error(can_id.first, UINTto8HEX(can_id.first), 0, CAN_LEN() - 1);
+      CheckVarConflict(can_id.first, 0, CAN_LEN() - 1);
     }
   }
 };  // class CanParser

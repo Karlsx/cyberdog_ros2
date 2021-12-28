@@ -68,7 +68,7 @@ public:
   // please use "#define LINK_VAR(var)" instead
   void LinkVar(const std::string & origin_name, const ProtocolData & var)
   {
-    if (base_ != nullptr) {base_->LinkVar(get_var_name(origin_name, error_clct_), var);}
+    if (base_ != nullptr) {base_->LinkVar(GetVarName(origin_name, error_clct_), var);}
   }
 
   bool Operate(const std::string & CMD, const std::vector<uint8_t> & data = std::vector<uint8_t>())

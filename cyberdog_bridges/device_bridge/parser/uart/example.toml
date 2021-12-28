@@ -14,6 +14,7 @@ name = "uart_device_name"
 # [optional] frame_start = 
 # [optional] frame_end = 
 # [optional] frame_crc = 
+# [optional] frame_len_pos = []
 
 
 # -- data_var -- #

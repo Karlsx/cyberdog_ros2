@@ -16,7 +16,7 @@ parser_param = [0, 7]
 
 [[array]]
 description = ""
-can_package_num = 1
+package_num = 1
 can_id = ["0x301"]
 array_name = "u8_array"
 

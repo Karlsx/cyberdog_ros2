@@ -31,6 +31,48 @@ namespace common
 {
 #define T_FRAMEID uint32_t
 
+class FrameRuleBase
+{
+public:
+  explicit FrameRuleBase(
+    CHILD_STATE_CLCT clct,
+    const toml::table & table,
+    const std::string & out_name,
+    const std::string & parser_name)
+  {
+    error_clct = clct;
+    warn_flag = false;
+    frame_id = all_frame_num++;
+    data_len = toml_at<size_t>(table, "data_len", error_clct);
+    frame_name = toml_at<std::string>(table, "frame_name", error_clct);
+
+    if (frame_name == "") {
+      error_clct->LogState(ErrorCode::RULEFRAME_ILLEGAL_FRAMENAME);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] frame_name error, not support empty string\n" C_END,
+        parser_name.c_str(), out_name.c_str());
+    }
+  }
+
+  explicit FrameRuleBase(CHILD_STATE_CLCT clct, size_t len, std::string name, T_FRAMEID id)
+  {
+    error_clct = clct;
+    warn_flag = false;
+    data_len = len;
+    frame_name = name;
+    frame_id = id;
+  }
+
+  CHILD_STATE_CLCT error_clct;
+  bool warn_flag;
+  size_t data_len;
+  T_FRAMEID frame_id;
+  std::string frame_name;
+
+private:
+  inline static uint all_frame_num;
+};  // class FrameRuleBase
+
 class VarRuleBase
 {
 public:
@@ -103,28 +145,28 @@ public:
         if (parser_param[0] >= max_len) {
           error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s][var:%s] \"bit\" type parser_param error, "
+            C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"bit\" parser_param error, "
             "parser_param[0] value need between 0-%d\n" C_END,
             parser_name.c_str(), out_name.c_str(), var_name.c_str(), max_len - 1);
         }
         if (parser_param[1] < parser_param[2]) {
           error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s][var:%s] \"bit\" type parser_param error, "
+            C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"bit\" parser_param error, "
             "parser_param[1] need >= parser_param[2]\n" C_END,
             parser_name.c_str(), out_name.c_str(), var_name.c_str());
         }
         if (parser_param[1] >= 8 || parser_param[2] >= 8) {
           error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s][var:%s] \"bit\" type parser_param error, "
+            C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"bit\" parser_param error, "
             "parser_param[1] and parser_param[2] value need between 0-7\n" C_END,
             parser_name.c_str(), out_name.c_str(), var_name.c_str());
         }
       } else {
         error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_SIZE);
         printf(
-          C_RED "[%s_PARSER][ERROR][%s][var:%s] \"bit\" type parser error, "
+          C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"bit\" parser error, "
           "parser[bit] need 3 parser_param, but get %d\n" C_END,
           parser_name.c_str(), out_name.c_str(), var_name.c_str(),
           static_cast<uint8_t>(param_size));
@@ -136,21 +178,21 @@ public:
         if (parser_param[0] > parser_param[1]) {
           error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s][var:%s] \"var\" type parser_param error, "
+            C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"var\" parser_param error, "
             "parser_param[0] need <= parser_param[1]\n" C_END,
             parser_name.c_str(), out_name.c_str(), var_name.c_str());
         }
         if (parser_param[0] >= max_len || parser_param[1] >= max_len) {
           error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_VALUE);
           printf(
-            C_RED "[%s_PARSER][ERROR][%s][var:%s] \"var\" type parser_param error, "
+            C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"var\" parser_param error, "
             "parser_param[0] and parser_param[1] value need between 0-%d\n" C_END,
             parser_name.c_str(), out_name.c_str(), var_name.c_str(), max_len - 1);
         }
       } else {
         error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERPARAM_SIZE);
         printf(
-          C_RED "[%s_PARSER][ERROR][%s][var:%s] \"var\" type parser error, "
+          C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"var\" parser error, "
           "parser[var] need 2 parser_param, but get %d\n" C_END,
           parser_name.c_str(), out_name.c_str(), var_name.c_str(),
           static_cast<uint8_t>(param_size));
@@ -158,21 +200,62 @@ public:
     } else if (parser_type != "auto") {
       error_clct->LogState(ErrorCode::RULEVAR_ILLEGAL_PARSERTYPE);
       printf(
-        C_RED "[%s_PARSER][ERROR][%s][var:%s] var can parser error, "
+        C_RED "[%s_PARSER][ERROR][%s][var:%s] type:\"var\" parser error, "
         "only support \"bit/var\", but get %s\n" C_END,
         parser_name.c_str(), out_name.c_str(), var_name.c_str(), parser_type.c_str());
     }
   }
+
   CHILD_STATE_CLCT error_clct;
   bool warn_flag;
   float var_zoom;
   T_FRAMEID frame_id;
-  std::string str_frame_id;
   std::string var_name;
   std::string var_type;
   std::string parser_type;
   uint8_t parser_param[3];
 };  // class VarRuleBase
+
+class ArrayRuleBase
+{
+public:
+  explicit ArrayRuleBase(
+    CHILD_STATE_CLCT clct,
+    const toml::table & table,
+    const std::string & out_name,
+    const std::string & parser_name)
+  {
+    array_expect = 0;
+    waiting_index = 0;
+    error_clct = clct;
+    warn_flag = false;
+    package_num = toml_at<size_t>(table, "package_num", error_clct);
+    array_name = toml_at<std::string>(table, "array_name", error_clct);
+    if (array_name == "") {
+      error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_ARRAYNAME);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] array_name error, not support empty string\n" C_END,
+        parser_name.c_str(), out_name.c_str());
+    }
+  }
+
+  CHILD_STATE_CLCT error_clct;
+  bool warn_flag;
+  int array_expect;
+  size_t all_max_len;
+  size_t package_num;
+  size_t waiting_index;
+  std::string array_name;
+  std::map<T_FRAMEID, int> frameID_map;
+
+  inline int get_offset(T_FRAMEID frame_id)
+  {
+    if (frameID_map.find(frame_id) != frameID_map.end()) {
+      return frameID_map.at(frame_id);
+    }
+    return -1;
+  }
+};  // class ArrayRuleBase
 
 class CmdRuleBase
 {
@@ -215,6 +298,7 @@ public:
         parser_name.c_str(), out_name.c_str(), cmd_name.c_str(), ctrl_len, size);
     }
   }
+
   CHILD_STATE_CLCT error_clct;
   bool warn_flag;
   uint8_t ctrl_len;
@@ -244,15 +328,36 @@ protected:
   std::string out_name_;
   std::string parser_name_;
   CHILD_STATE_CLCT error_clct_;
+
+  std::map<T_FRAMEID, FrameRuleBase> parser_frame_map_ = std::map<T_FRAMEID, FrameRuleBase>();
   std::map<T_FRAMEID, std::vector<VarRuleBase>> parser_var_map_ =
     std::map<T_FRAMEID, std::vector<VarRuleBase>>();
   std::map<std::string, CmdRuleBase> parser_cmd_map_ =
     std::map<std::string, CmdRuleBase>();
 
+  // for check
   std::shared_ptr<std::set<std::string>> var_name_check_ = nullptr;
   std::shared_ptr<std::map<T_FRAMEID, std::vector<uint8_t>>> data_check_ = nullptr;
 
-  void InitVar(VarRuleBase & rule, size_t raw_data_len)
+  // Init ////////////////////////////////////////////////////////////////////////////////////////
+
+  void InitFrame(FrameRuleBase & rule, bool check_id = true)
+  {
+    if (rule.warn_flag) {warn_num_++;}
+    if (rule.error_clct->GetSelfStateTimesNum() == 0) {
+      T_FRAMEID frame_id = rule.frame_id;
+      if (parser_frame_map_.find(frame_id) == parser_frame_map_.end()) {
+        parser_frame_map_.insert(std::pair<T_FRAMEID, FrameRuleBase>(frame_id, rule));
+      } else if (check_id) {
+        error_clct_->LogState(ErrorCode::RULEFRAME_SAMEFRAMEID_ERROR);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s] get same frame_id:\"%x\"\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), frame_id);
+      }
+    }
+  }
+
+  void InitVar(VarRuleBase & rule)
   {
     if (rule.warn_flag) {warn_num_++;}
     if (rule.error_clct->GetSelfStateTimesNum() == 0) {
@@ -262,22 +367,28 @@ protected:
           std::pair<T_FRAMEID, std::vector<VarRuleBase>>(frame_id, std::vector<VarRuleBase>()));
       }
       // check error and warning
-      if (same_var_error(rule.var_name)) {return;}
-      check_data_area_error(rule, raw_data_len);  // report error but get pass
+      if (IsSameVarError(rule.var_name)) {return;}
+      CheckDataConflict(rule, GetFrameDataLen(rule.frame_id));  // report error but get pass
       parser_var_map_.at(frame_id).push_back(rule);
     }
   }
 
-  void InitCmd(CmdRuleBase & rule, uint32_t raw_data_len)
+  void InitArray(ArrayRuleBase & rule)
+  {
+
+  }
+
+  void InitCmd(CmdRuleBase & rule)
   {
     if (rule.warn_flag) {warn_num_++;}
     if (rule.error_clct->GetSelfStateTimesNum() == 0) {
-      if (rule.ctrl_len > raw_data_len) {
+      auto data_len = GetFrameDataLen(rule.frame_id);
+      if (rule.ctrl_len > data_len) {
         error_clct_->LogState(ErrorCode::RULECMD_CTRLDATA_ERROR);
         printf(
-          C_RED "[%s_PARSER][ERROR][%s] cmd_name:\"%s\", ctrl_len:%d > MAX_CAN_DATA:%d\n" C_END,
+          C_RED "[%s_PARSER][ERROR][%s] cmd_name:\"%s\", ctrl_len:%d > MAX_DATA_LEN:%ld\n" C_END,
           parser_name_.c_str(), out_name_.c_str(),
-          rule.cmd_name.c_str(), rule.ctrl_len, raw_data_len);
+          rule.cmd_name.c_str(), rule.ctrl_len, data_len);
         return;
       }
       std::string cmd_name = rule.cmd_name;
@@ -292,7 +403,35 @@ protected:
     }
   }
 
-  uint8_t creat_mask(uint8_t h_bit, uint8_t l_bit)
+  // Tools //////////////////////////////////////////////////////
+
+  size_t GetFrameDataLen(T_FRAMEID frame_id)
+  {
+    if (parser_frame_map_.find(frame_id) != parser_frame_map_.end()) {
+      return parser_frame_map_.at(frame_id).data_len;
+    } else {
+      error_clct_->LogState(ErrorCode::RUNTIME_NOFRAMEID_ERROR);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] Can't find frame_id:\"%x\"\n" C_END,
+        parser_name_.c_str(), out_name_.c_str(), frame_id);
+    }
+    return 0;
+  }
+
+  std::string GetFrameName(T_FRAMEID frame_id)
+  {
+    if (parser_frame_map_.find(frame_id) != parser_frame_map_.end()) {
+      return parser_frame_map_.at(frame_id).frame_name;
+    } else {
+      error_clct_->LogState(ErrorCode::RUNTIME_NOFRAMEID_ERROR);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] Can't find frame_id:\"%x\"\n" C_END,
+        parser_name_.c_str(), out_name_.c_str(), frame_id);
+    }
+    return "#unknow";
+  }
+
+  uint8_t CreatMask(uint8_t h_bit, uint8_t l_bit)
   {
     uint8_t tmp = 0x1;
     uint8_t mask = 0x0;
@@ -303,8 +442,8 @@ protected:
     return mask;
   }
 
-  // Check //////////////////////////////////////////////////////
-  void CrectCheck()
+  // Check ///////////////////////////////////////////////////////////////////////////////////////
+  void CreateCheck()
   {
     data_check_ = std::make_shared<std::map<T_FRAMEID, std::vector<uint8_t>>>();
     var_name_check_ = std::make_shared<std::set<std::string>>();
@@ -316,7 +455,7 @@ protected:
     var_name_check_ = nullptr;
   }
 
-  std::string show_conflict(uint8_t mask)
+  std::string ShowConflict(uint8_t mask)
   {
     uint8_t tmp = 0b10000000;
     std::string result = "";
@@ -327,7 +466,7 @@ protected:
     return result;
   }
 
-  bool same_var_error(std::string & name)
+  bool IsSameVarError(std::string & name)
   {
     if (var_name_check_->find(name) != var_name_check_->end()) {
       error_clct_->LogState(ErrorCode::RULE_SAMENAME_ERROR);
@@ -339,15 +478,13 @@ protected:
     return false;
   }
 
-  void var_area_error(const VarRuleBase & rule)
+  void CheckVarConflict(const VarRuleBase & rule)
   {
-    var_area_error(
-      rule.frame_id, rule.str_frame_id, rule.parser_param[0], rule.parser_param[1]);
+    CheckVarConflict(rule.frame_id, rule.parser_param[0], rule.parser_param[1]);
   }
 
-  void var_area_error(
+  void CheckVarConflict(
     const T_FRAMEID & frame_id,
-    const std::string & str_frame_id,
     int data_l,
     int data_h)
   {
@@ -362,20 +499,20 @@ protected:
           error_clct_->LogState(ErrorCode::DATA_AREA_CONFLICT);
           printf(
             C_RED "[%s_PARSER][ERROR][%s] data area decode/encode many times at pos'*':\n"
-            "FrameID[%s]:\n\tDATA[%d]%s\n" C_END,
-            parser_name_.c_str(), out_name_.c_str(), str_frame_id.c_str(), index,
-            show_conflict(conflict).c_str());
+            " FrameID[%s]:\n\tDATA[%d]%s\n" C_END,
+            parser_name_.c_str(), out_name_.c_str(), GetFrameName(frame_id).c_str(), index,
+            ShowConflict(conflict).c_str());
         } else {
           printf(
             C_RED "\tDATA[%d]%s\n" C_END,
-            index, show_conflict(mask).c_str());
+            index, ShowConflict(mask).c_str());
         }
       }
       data_check_->at(frame_id)[index] |= mask;
     }
   }
 
-  void check_data_area_error(VarRuleBase & rule, size_t raw_data_len)
+  void CheckDataConflict(VarRuleBase & rule, size_t raw_data_len)
   {
     if (data_check_->find(rule.frame_id) == data_check_->end()) {
       data_check_->insert(
@@ -385,19 +522,19 @@ protected:
 
     if (rule.parser_type == "bit") {
       uint8_t data_index = rule.parser_param[0];
-      uint8_t mask = creat_mask(rule.parser_param[1], rule.parser_param[2]);
+      uint8_t mask = CreatMask(rule.parser_param[1], rule.parser_param[2]);
       uint8_t conflict = data_check_->at(rule.frame_id)[data_index] & mask;
       if (conflict != 0x0) {
         error_clct_->LogState(ErrorCode::DATA_AREA_CONFLICT);
         printf(
           C_RED "[%s_PARSER][ERROR][%s] data area decode/encode many times at pos'*':\n"
-          "FrameID[%s]:\n\tDATA[%d]%s\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), rule.str_frame_id.c_str(), data_index,
-          show_conflict(conflict).c_str());
+          " FrameID[%s]:\n\tDATA[%d]%s\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), GetFrameName(rule.frame_id).c_str(), data_index,
+          ShowConflict(conflict).c_str());
       }
       data_check_->at(rule.frame_id)[data_index] |= mask;
     } else if (rule.parser_type == "var") {
-      var_area_error(rule);
+      CheckVarConflict(rule);
     }
   }
 
@@ -414,18 +551,18 @@ protected:
 
   // Encode //////////////////////////////////////////////////////////////////////////////////////
   template<typename Target>
-  inline void put_var(
+  inline void PutVar(
     const ProtocolData & var,
     uint8_t * raw_data,
     const VarRuleBase & rule,
     const std::string & out_name,
     bool & error_flag)
   {
-    put_var<Target, Target>(var, raw_data, rule, out_name, error_flag);
+    PutVar<Target, Target>(var, raw_data, rule, out_name, error_flag);
   }
 
   template<typename Target, typename Source>
-  void put_var(
+  void PutVar(
     const ProtocolData & var,
     uint8_t * raw_data,
     const VarRuleBase & rule,
@@ -436,7 +573,7 @@ protected:
       uint8_t h_pos = rule.parser_param[1];
       uint8_t l_pos = rule.parser_param[2];
       raw_data[rule.parser_param[0]] |=
-        (*static_cast<uint8_t *>(var.addr) << l_pos) & creat_mask(h_pos, l_pos);
+        (*static_cast<uint8_t *>(var.addr) << l_pos) & CreatMask(h_pos, l_pos);
     } else if (rule.parser_type == "var") {
       uint8_t u8_num = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (sizeof(Target) != u8_num) {
@@ -470,11 +607,11 @@ protected:
     if (rule.var_type == "double") {
       uint8_t u8_num = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (u8_num == 2) {
-        put_var<int16_t, double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        PutVar<int16_t, double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 4) {
-        put_var<int32_t, double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        PutVar<int32_t, double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 8) {
-        put_var<double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        PutVar<double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else {
         error_flag = true;
         error_clct_->LogState(ErrorCode::DOUBLE_SIMPLIFY_ERROR);
@@ -485,9 +622,9 @@ protected:
     } else if (rule.var_type == "float") {
       uint8_t u8_num = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (u8_num == 2) {
-        put_var<int16_t, float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        PutVar<int16_t, float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 4) {
-        put_var<float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        PutVar<float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else {
         error_flag = true;
         error_clct_->LogState(ErrorCode::FLOAT_SIMPLIFY_ERROR);
@@ -496,23 +633,23 @@ protected:
           parser_name_.c_str(), out_name_.c_str(), u8_num);
       }
     } else if (rule.var_type == "bool") {
-      put_var<bool>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<bool>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u64") {
-      put_var<uint64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<uint64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u32") {
-      put_var<uint32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<uint32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u16") {
-      put_var<uint16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<uint16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u8") {
-      put_var<uint8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<uint8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i64") {
-      put_var<int64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<int64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i32") {
-      put_var<int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i16") {
-      put_var<int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i8") {
-      put_var<int8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      PutVar<int8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u8_array") {
       int len = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (single_protocol_data.len == len) {
@@ -534,18 +671,18 @@ protected:
 
   // Decode //////////////////////////////////////////////////////////////////////////////////////
   template<typename Target>
-  inline void get_var(
+  inline void GetVar(
     ProtocolData & var,
     const uint8_t * const raw_data,
     const VarRuleBase & rule,
     const std::string & out_name,
     bool & error_flag)
   {
-    get_var<Target, Target>(var, raw_data, rule, out_name, error_flag);
+    GetVar<Target, Target>(var, raw_data, rule, out_name, error_flag);
   }
 
   template<typename Target, typename Source>
-  void get_var(
+  void GetVar(
     ProtocolData & var,
     const uint8_t * const raw_data,
     const VarRuleBase & rule,
@@ -571,7 +708,7 @@ protected:
         // bit
         result =
           (raw_data[rule.parser_param[0]] &
-          creat_mask(rule.parser_param[1], rule.parser_param[2])) >> rule.parser_param[2];
+          CreatMask(rule.parser_param[1], rule.parser_param[2])) >> rule.parser_param[2];
       }
 
       *static_cast<Target *>(var.addr) = *(reinterpret_cast<Source *>(&result));
@@ -580,7 +717,7 @@ protected:
   }
 
   template<typename T>
-  inline void zoom_var(ProtocolData & var, float kp)
+  inline void ZoomVar(ProtocolData & var, float kp)
   {
     *static_cast<T *>(var.addr) *= kp;
   }
@@ -594,11 +731,11 @@ protected:
     if (rule.var_type == "double") {
       uint8_t u8_num = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (u8_num == 2) {
-        get_var<double, int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        GetVar<double, int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 4) {
-        get_var<double, int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        GetVar<double, int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 8) {
-        get_var<double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        GetVar<double>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else {
         error_flag = true;
         error_clct_->LogState(ErrorCode::DOUBLE_SIMPLIFY_ERROR);
@@ -606,13 +743,13 @@ protected:
           C_RED "[%s_PARSER][ERROR][%s] size %d can't get double\n" C_END,
           parser_name_.c_str(), out_name_.c_str(), u8_num);
       }
-      zoom_var<double>(single_protocol_data, rule.var_zoom);
+      ZoomVar<double>(single_protocol_data, rule.var_zoom);
     } else if (rule.var_type == "float") {
       uint8_t u8_num = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (u8_num == 2) {
-        get_var<float, int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        GetVar<float, int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else if (u8_num == 4) {
-        get_var<float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+        GetVar<float>(single_protocol_data, raw_data, rule, out_name_, error_flag);
       } else {
         error_flag = true;
         error_clct_->LogState(ErrorCode::FLOAT_SIMPLIFY_ERROR);
@@ -620,25 +757,25 @@ protected:
           C_RED "[%s_PARSER][ERROR][%s] size %d can't get float\n" C_END,
           parser_name_.c_str(), out_name_.c_str(), u8_num);
       }
-      zoom_var<float>(single_protocol_data, rule.var_zoom);
+      ZoomVar<float>(single_protocol_data, rule.var_zoom);
     } else if (rule.var_type == "bool") {
-      get_var<bool>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<bool>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u64") {
-      get_var<uint64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<uint64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u32") {
-      get_var<uint32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<uint32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u16") {
-      get_var<uint16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<uint16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u8") {
-      get_var<uint8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<uint8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i64") {
-      get_var<int64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<int64_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i32") {
-      get_var<int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<int32_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i16") {
-      get_var<int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<int16_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "i8") {
-      get_var<int8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
+      GetVar<int8_t>(single_protocol_data, raw_data, rule, out_name_, error_flag);
     } else if (rule.var_type == "u8_array") {
       int len = rule.parser_param[1] - rule.parser_param[0] + 1;
       if (single_protocol_data.len >= len) {

@@ -155,13 +155,13 @@ parser_param = [44, 47]
 
 [[array]]
 description = ""
-can_package_num = 2
+package_num = 2
 can_id = ["0x0300 00 10", "0x0300 00 11"]
 array_name = "u8_array_1"
 
 [[array]]
 description = ""
-can_package_num = 1
+package_num = 1
 can_id = ["0x0300 0F 10"]
 array_name = "u8_array_2"
 
