@@ -246,12 +246,13 @@ public:
   size_t package_num;
   size_t waiting_index;
   std::string array_name;
-  std::map<T_FRAMEID, int> frameID_map;
+  std::map<T_FRAMEID, int> frame_map;
+  std::shared_ptr<std::vector<T_FRAMEID>> frame_send_vec = nullptr;
 
   inline int get_offset(T_FRAMEID frame_id)
   {
-    if (frameID_map.find(frame_id) != frameID_map.end()) {
-      return frameID_map.at(frame_id);
+    if (frame_map.find(frame_id) != frame_map.end()) {
+      return frame_map.at(frame_id);
     }
     return -1;
   }
@@ -275,7 +276,7 @@ public:
         C_RED "[%s_PARSER][ERROR][%s] cmd_name error, not support empty string\n" C_END,
         parser_name.c_str(), out_name.c_str());
     }
-    ctrl_len = toml_at<uint8_t>(table, "ctrl_len", 0);
+    ctrl_len = toml_at<uint16_t>(table, "ctrl_len", 0);
     auto tmp_ctrl_data = toml_at<std::vector<std::string>>(table, "ctrl_data");
     ctrl_data = std::vector<uint8_t>();
     for (auto & str : tmp_ctrl_data) {
@@ -301,7 +302,7 @@ public:
 
   CHILD_STATE_CLCT error_clct;
   bool warn_flag;
-  uint8_t ctrl_len;
+  uint16_t ctrl_len;
   T_FRAMEID frame_id;
   std::string cmd_name;
   std::vector<uint8_t> ctrl_data;
@@ -323,6 +324,18 @@ public:
   int GetInitErrorNum() {return error_clct_->GetAllStateTimesNum();}
   int GetInitWarnNum() {return warn_num_;}
 
+  std::vector<T_FRAMEID> GetRecvList()
+  {
+    auto recv_list = std::vector<T_FRAMEID>();
+    for (auto & a : parser_var_map_) {recv_list.push_back(a.first);}
+    for (auto & a : parser_array_vec_) {
+      for (auto & b : a.frame_map) {
+        recv_list.push_back(b.first);
+      }
+    }
+    return recv_list;
+  }
+
 protected:
   int warn_num_ = 0;
   std::string out_name_;
@@ -332,6 +345,7 @@ protected:
   std::map<T_FRAMEID, FrameRuleBase> parser_frame_map_ = std::map<T_FRAMEID, FrameRuleBase>();
   std::map<T_FRAMEID, std::vector<VarRuleBase>> parser_var_map_ =
     std::map<T_FRAMEID, std::vector<VarRuleBase>>();
+  std::vector<ArrayRuleBase> parser_array_vec_ = std::vector<ArrayRuleBase>();
   std::map<std::string, CmdRuleBase> parser_cmd_map_ =
     std::map<std::string, CmdRuleBase>();
 
@@ -368,14 +382,24 @@ protected:
       }
       // check error and warning
       if (IsSameVarError(rule.var_name)) {return;}
-      CheckDataConflict(rule, GetFrameDataLen(rule.frame_id));  // report error but get pass
+      CheckDataConflict(rule);  // report error but get pass
       parser_var_map_.at(frame_id).push_back(rule);
     }
   }
 
   void InitArray(ArrayRuleBase & rule)
   {
-
+    if (rule.warn_flag) {warn_num_++;}
+    if (rule.error_clct->GetSelfStateTimesNum() == 0) {
+      // check error and warning
+      if (IsSameVarError(rule.array_name)) {return;}
+      CheckDataConflict(rule);  // report error but get pass
+      rule.all_max_len = 0;
+      for (auto & a : rule.frame_map) {
+        rule.all_max_len += GetFrameDataLen(a.first);
+      }
+      parser_array_vec_.push_back(rule);
+    }
   }
 
   void InitCmd(CmdRuleBase & rule)
@@ -512,29 +536,43 @@ protected:
     }
   }
 
-  void CheckDataConflict(VarRuleBase & rule, size_t raw_data_len)
+  void CheckDataConflict(VarRuleBase & rule)
   {
-    if (data_check_->find(rule.frame_id) == data_check_->end()) {
+    auto frame_id = rule.frame_id;
+    if (data_check_->find(frame_id) == data_check_->end()) {
       data_check_->insert(
         std::pair<T_FRAMEID, std::vector<uint8_t>>(
-          rule.frame_id, std::vector<uint8_t>(raw_data_len)));
+          frame_id, std::vector<uint8_t>(GetFrameDataLen(frame_id))));
     }
 
     if (rule.parser_type == "bit") {
       uint8_t data_index = rule.parser_param[0];
       uint8_t mask = CreatMask(rule.parser_param[1], rule.parser_param[2]);
-      uint8_t conflict = data_check_->at(rule.frame_id)[data_index] & mask;
+      uint8_t conflict = data_check_->at(frame_id)[data_index] & mask;
       if (conflict != 0x0) {
         error_clct_->LogState(ErrorCode::DATA_AREA_CONFLICT);
         printf(
           C_RED "[%s_PARSER][ERROR][%s] data area decode/encode many times at pos'*':\n"
           " FrameID[%s]:\n\tDATA[%d]%s\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), GetFrameName(rule.frame_id).c_str(), data_index,
+          parser_name_.c_str(), out_name_.c_str(), GetFrameName(frame_id).c_str(), data_index,
           ShowConflict(conflict).c_str());
       }
-      data_check_->at(rule.frame_id)[data_index] |= mask;
+      data_check_->at(frame_id)[data_index] |= mask;
     } else if (rule.parser_type == "var") {
       CheckVarConflict(rule);
+    }
+  }
+
+  void CheckDataConflict(ArrayRuleBase & rule)
+  {
+    for (auto & frame : rule.frame_map) {
+      auto frame_id = frame.first;
+      if (data_check_->find(frame_id) == data_check_->end()) {
+        data_check_->insert(
+          std::pair<T_FRAMEID, std::vector<uint8_t>>(
+            frame_id, std::vector<uint8_t>(GetFrameDataLen(frame_id))));
+      }
+      CheckVarConflict(frame_id, 0, GetFrameDataLen(frame_id) - 1);
     }
   }
 
@@ -667,6 +705,108 @@ protected:
           single_protocol_data.len, len);
       }
     }
+  }
+
+  bool EncodeCMD(
+    const std::string & CMD,
+    canid_t & frame_id,
+    uint8_t * raw_data,
+    const std::vector<uint8_t> & data)
+  {
+    if (parser_cmd_map_.find(CMD) != parser_cmd_map_.end()) {
+      auto & cmd = parser_cmd_map_.at(CMD);
+      frame_id = cmd.frame_id;
+      uint16_t ctrl_len = cmd.ctrl_len;
+      int frame_len = GetFrameDataLen(frame_id);
+      if (ctrl_len + static_cast<int>(data.size()) > frame_len) {
+        error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s][cmd:%s] CMD data overflow, "
+          "ctrl_len:%d + data_len:%ld > max_can_len:%d\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), CMD.c_str(), ctrl_len, data.size(), frame_len);
+        return false;
+      }
+      for (int a = 0; a < frame_len && a < static_cast<int>(cmd.ctrl_data.size()); a++) {
+        raw_data[a] = cmd.ctrl_data[a];
+      }
+      for (int a = ctrl_len; a < frame_len && a - ctrl_len < static_cast<int>(data.size()); a++) {
+        raw_data[a] = data[a - ctrl_len];
+      }
+      return true;
+    } else {
+      error_clct_->LogState(ErrorCode::RULECMD_MISSING_ERROR);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] can't find cmd:\"%s\"\n" C_END,
+        parser_name_.c_str(), out_name_.c_str(), CMD.c_str());
+      return false;
+    }
+  }
+
+  void EncodeVar(
+    const PROTOCOL_DATA_MAP & protocol_data_map,
+    const VarRuleBase & rule,
+    uint8_t * raw_data,
+    bool & error_flag)
+  {
+    std::string var_name = rule.var_name;
+    if (protocol_data_map.find(var_name) == protocol_data_map.end()) {
+      error_flag = true;
+      error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
+      printf(
+        C_RED "[%s_PARSER][ERROR][%s] Can't find var_name:\"%s\" in protocol_data_map\n"
+        "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
+        parser_name_.c_str(), out_name_.c_str(), var_name.c_str());
+      return;
+    }
+    EncodeVarBase(protocol_data_map.at(var_name), raw_data, rule, error_flag);
+  }
+
+  bool EncodeArray(
+    const PROTOCOL_DATA_MAP & protocol_data_map,
+    ArrayRuleBase & rule,
+    uint8_t * raw_data,
+    int frame_index,
+    bool & error_flag)
+  {
+    static uint start_index;
+    static const ProtocolData * single_protocol_data;
+
+    if (frame_index == 0) {
+      start_index = 0;
+      std::string array_name = rule.array_name;
+      if (protocol_data_map.find(array_name) == protocol_data_map.end()) {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s] Can't find array_name:\"%s\" in protocol_data_map\n"
+          "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
+        return false;
+      }
+      single_protocol_data = &protocol_data_map.at(array_name);
+      if (rule.all_max_len != single_protocol_data->len) {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\" size not match, "
+          "can't write to can frame data for send\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
+        return false;
+      }
+    } else if (frame_index >= static_cast<int>(rule.frame_map.size())) {return false;}
+
+    if (rule.frame_send_vec == nullptr) {
+      rule.frame_send_vec = std::make_shared<std::vector<T_FRAMEID>>(rule.frame_map.size());
+      for (auto & a : rule.frame_map) {(*rule.frame_send_vec)[a.second] = a.first;}
+    }
+    int len = GetFrameDataLen((*rule.frame_send_vec)[frame_index]);
+    uint8_t * protocol_array_base = static_cast<uint8_t *>(single_protocol_data->addr);
+    protocol_array_base += start_index;
+    for (int a = 0; a < len; a++, protocol_array_base++) {
+      raw_data[a] = *protocol_array_base;
+    }
+    start_index += len;
+    return true;
   }
 
   // Decode //////////////////////////////////////////////////////////////////////////////////////
@@ -816,7 +956,82 @@ protected:
       }
     }
   }
-};
+
+  void DecodeArray(
+    PROTOCOL_DATA_MAP & protocol_data_map,
+    T_FRAMEID frame_id,
+    uint8_t * raw_data,
+    bool & error_flag)
+  {
+    for (auto & rule : parser_array_vec_) {
+      auto offset = rule.get_offset(frame_id);
+      if (offset == -1) {continue;}
+      if (protocol_data_map.find(rule.array_name) != protocol_data_map.end()) {
+        ProtocolData * var = &protocol_data_map.at(rule.array_name);
+        size_t len = GetFrameDataLen(frame_id);
+        if (var->len < rule.all_max_len) {
+          error_flag = true;
+          error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\" length overflow\n" C_END,
+            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str());
+          continue;
+        }
+        if (offset == rule.array_expect) {
+          // main decode begin
+          uint8_t * data_area = reinterpret_cast<uint8_t *>(var->addr);
+          data_area += rule.waiting_index;
+          for (int a = 0; a < static_cast<int>(len); a++) {
+            data_area[a] = raw_data[a];
+          }
+          rule.array_expect++;
+          rule.waiting_index += len;
+          if (offset == static_cast<int>(rule.package_num) - 1) {
+            var->loaded = true;
+            rule.array_expect = 0;
+            rule.waiting_index = 0;
+          }
+        } else {
+          T_FRAMEID expect_id = 0x0;
+          for (auto & id : rule.frame_map) {
+            if (id.second == rule.array_expect) {
+              expect_id = id.first;
+              break;
+            }
+          }
+          rule.array_expect = 0;
+          rule.waiting_index = 0;
+          error_flag = true;
+          error_clct_->LogState(ErrorCode::RUNTIME_UNEXPECT_ORDERPACKAGE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\", expect frame:\"%s\", "
+            "but get \"%s\", reset expect frame_id and you need send array in order\n" C_END,
+            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(),
+            GetFrameName(expect_id).c_str(), GetFrameName(frame_id).c_str());
+        }
+      } else {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s] Can't find array_name:\"%s\" in protocol_data_map\n"
+          "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str());
+      }
+    }
+  }
+
+  // return true when finish all package
+  bool DecodeMain(
+    PROTOCOL_DATA_MAP & protocol_data_map,
+    T_FRAMEID frame_id,
+    uint8_t * raw_data,
+    bool & error_flag)
+  {
+    DecodeVar(protocol_data_map, frame_id, raw_data, error_flag);
+    DecodeArray(protocol_data_map, frame_id, raw_data, error_flag);
+    return CheckAllFrameRecv(protocol_data_map);
+  }
+};  // class ParserBase
 
 }  // namespace common
 }  // namespace cyberdog

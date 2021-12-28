@@ -248,7 +248,7 @@ description = "this is example named example_array_2"
 # [[cmd]]
 # cmd_name = "cmd_name_1"      (string)
 # can_id = "0x02"              (string-HEX)
-# [optional] ctrl_len = 0      (uint8)
+# [optional] ctrl_len = 0      (uint16)
 # [optional] ctrl_data = []    (array<string-HEX>[x] : where x <= ctrl_len)
 # [optional] description = ""  (string)
 

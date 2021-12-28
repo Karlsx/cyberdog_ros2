@@ -68,8 +68,8 @@ public:
         for (auto & single_id : tmp_can_id) {
           canid_t canid = HEXtoUINT(single_id, error_clct);
           CanidRangeCheck(canid, extended, out_name, array_name, error_clct);
-          if (frameID_map.find(canid) == frameID_map.end()) {
-            frameID_map.insert(std::pair<canid_t, int>(canid, index++));
+          if (frame_map.find(canid) == frame_map.end()) {
+            frame_map.insert(std::pair<canid_t, int>(canid, index++));
           } else {
             error_clct->LogState(ErrorCode::RULEARRAY_SAMECANID_ERROR);
             printf(
@@ -81,7 +81,7 @@ public:
         // continuous check
         bool first = true;
         canid_t last_id;
-        for (auto & id : frameID_map) {
+        for (auto & id : frame_map) {
           if (first == true) {
             first = false;
             last_id = id.first;
@@ -102,7 +102,7 @@ public:
         if (end_id - start_id + 1 == package_num) {
           int index = 0;
           for (canid_t a = start_id; a <= end_id; a++) {
-            frameID_map.insert(std::pair<canid_t, int>(a, index++));
+            frame_map.insert(std::pair<canid_t, int>(a, index++));
           }
         } else {
           error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
@@ -169,23 +169,14 @@ public:
     }
     // get array rule
     for (auto & array : array_list) {
-      auto single_array = ArrayRuleCan(
-        error_clct_->CreatChild(), extended_, array, out_name_);
-      if (single_array.warn_flag) {warn_num_++;}
-      if (single_array.error_clct->GetSelfStateTimesNum() == 0) {
-        // check error and warning
-        if (IsSameVarError(single_array.array_name)) {continue;}
-        CheckDataConflict(single_array);
-        single_array.all_max_len = 0;
-        for (auto & a : single_array.frameID_map) {
-          auto frame_id = a.first;
-          single_array.all_max_len += CAN_LEN();
-          auto frame = FrameRuleBase(
-            error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(frame_id), frame_id);
-          InitFrame(frame, false);
-        }
-        parser_array_.push_back(single_array);
+      auto rule = ArrayRuleCan(error_clct_->CreatChild(), extended_, array, out_name_);
+      for (auto & a : rule.frame_map) {
+        auto frame_id = a.first;
+        auto frame = FrameRuleBase(
+          error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(frame_id), frame_id);
+        InitFrame(frame, false);
       }
+      InitArray(rule);
     }
     // get cmd rule
     for (auto & cmd : cmd_list) {
@@ -203,21 +194,13 @@ public:
   uint8_t CAN_LEN() {return canfd_ ? CANFD_MAX_DLEN : CAN_MAX_DLEN;}
   bool IsCanfd() {return canfd_;}
 
-  std::vector<canid_t> GetRecvList()
-  {
-    auto recv_list = std::vector<canid_t>();
-    for (auto & a : parser_var_map_) {recv_list.push_back(a.first);}
-    for (auto & a : parser_array_) {for (auto & b : a.frameID_map) {recv_list.push_back(b.first);}}
-    return recv_list;
-  }
-
   // return true when finish all package
   bool Decode(
     PROTOCOL_DATA_MAP & protocol_data_map,
     std::shared_ptr<canfd_frame> rx_frame,
     bool & error_flag)
   {
-    return Decode(protocol_data_map, rx_frame->can_id, rx_frame->data, error_flag);
+    return DecodeMain(protocol_data_map, rx_frame->can_id, rx_frame->data, error_flag);
   }
   // return true when finish all package
   bool Decode(
@@ -225,10 +208,10 @@ public:
     std::shared_ptr<can_frame> rx_frame,
     bool & error_flag)
   {
-    return Decode(protocol_data_map, rx_frame->can_id, rx_frame->data, error_flag);
+    return DecodeMain(protocol_data_map, rx_frame->can_id, rx_frame->data, error_flag);
   }
 
-  bool Encode(can_frame & tx_frame, const std::string & CMD, const std::vector<uint8_t> & data)
+  bool Encode(const std::string & CMD, can_frame & tx_frame, const std::vector<uint8_t> & data)
   {
     if (canfd_ == true) {
       error_clct_->LogState(ErrorCode::CAN_MIXUSING_ERROR);
@@ -238,10 +221,10 @@ public:
       return false;
     }
     tx_frame.can_dlc = CAN_LEN();
-    return Encode(CMD, tx_frame.can_id, tx_frame.data, data);
+    return EncodeCMD(CMD, tx_frame.can_id, tx_frame.data, data);
   }
 
-  bool Encode(canfd_frame & tx_frame, const std::string & CMD, const std::vector<uint8_t> & data)
+  bool Encode(const std::string & CMD, canfd_frame & tx_frame, const std::vector<uint8_t> & data)
   {
     if (canfd_ == false) {
       error_clct_->LogState(ErrorCode::CAN_MIXUSING_ERROR);
@@ -251,7 +234,7 @@ public:
       return false;
     }
     tx_frame.len = CAN_LEN();
-    return Encode(CMD, tx_frame.can_id, tx_frame.data, data);
+    return EncodeCMD(CMD, tx_frame.can_id, tx_frame.data, data);
   }
 
   bool Encode(
@@ -280,89 +263,19 @@ public:
     for (auto & parser_var : parser_var_map_) {
       *can_id = parser_var.first;
       for (auto & rule : parser_var.second) {
-        std::string var_name = rule.var_name;
-        if (protocol_data_map.find(var_name) == protocol_data_map.end()) {
-          error_flag = true;
-          error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
-          printf(
-            C_RED "[%s_PARSER][ERROR][%s] Can't find var_name:\"%s\" in protocol_data_map\n"
-            "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
-            parser_name_.c_str(), out_name_.c_str(), var_name.c_str());
-          continue;
-        }
-        EncodeVarBase(protocol_data_map.at(var_name), data, rule, error_flag);
+        EncodeVar(protocol_data_map, rule, data, error_flag);
       }
       // send out
-      if (canfd_) {
-        if (fd_frame == nullptr || can_op->send_can_message(*fd_frame) == false) {
-          error_flag = true;
-          error_clct_->LogState(ErrorCode::CAN_FD_SEND_ERROR);
-          printf(
-            C_RED "[%s_PARSER][ERROR][%s] Send fd_frame error\n" C_END,
-            parser_name_.c_str(), out_name_.c_str());
-        }
-      } else {
-        if (std_frame == nullptr || can_op->send_can_message(*std_frame) == false) {
-          error_flag = true;
-          error_clct_->LogState(ErrorCode::CAN_STD_SEND_ERROR);
-          printf(
-            C_RED "[%s_PARSER][ERROR][%s] Send std_frame error\n" C_END,
-            parser_name_.c_str(), out_name_.c_str());
-        }
-      }
+      SendOut(std_frame, fd_frame, can_op, error_flag);
       // clear data buff
       std::memset(data, 0, CAN_LEN());
     }
     // array encode
-    int frame_index = 0;
-    for (auto & rule : parser_array_) {
-      std::string array_name = rule.array_name;
-      if (protocol_data_map.find(array_name) == protocol_data_map.end()) {
-        error_flag = true;
-        error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
-        printf(
-          C_RED "[%s_PARSER][ERROR][%s] Can't find array_name:\"%s\" in protocol_data_map\n"
-          "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
-        continue;
-      }
-      const ProtocolData * const var = &protocol_data_map.at(array_name);
-      int frame_num = static_cast<int>(rule.frameID_map.size());
-      if (frame_num * CAN_LEN() != var->len) {
-        error_flag = true;
-        error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
-        printf(
-          C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\" size not match, "
-          "can't write to can frame data for send\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
-      }
-      auto ids = std::vector<canid_t>(frame_num);
-      for (auto & a : rule.frameID_map) {ids[a.second] = a.first;}
-      uint8_t * protocol_array = static_cast<uint8_t *>(var->addr);
-      for (int index = frame_index; index < frame_num; index++) {
-        *can_id = ids[index];
-        for (int a = 0; a < CAN_LEN(); a++) {
-          data[a] = *protocol_array;
-          protocol_array++;
-        }
-        // send out
-        if (canfd_) {
-          if (fd_frame == nullptr || can_op->send_can_message(*fd_frame) == false) {
-            error_flag = true;
-            error_clct_->LogState(ErrorCode::CAN_FD_SEND_ERROR);
-            printf(
-              C_RED "[%s_PARSER][ERROR][%s] Send fd_frame error\n" C_END,
-              parser_name_.c_str(), out_name_.c_str());
-          }
-        } else {
-          if (std_frame == nullptr || can_op->send_can_message(*std_frame) == false) {
-            error_flag = true;
-            error_clct_->LogState(ErrorCode::CAN_STD_SEND_ERROR);
-            printf(
-              C_RED "[%s_PARSER][ERROR][%s] Send std_frame error\n" C_END,
-              parser_name_.c_str(), out_name_.c_str());
-          }
-        }
+    for (auto & rule : parser_array_vec_) {
+      for (int a = 0; a < static_cast<int>(rule.frame_map.size()); a++) {
+        if (!EncodeArray(protocol_data_map, rule, data, a, error_flag)) {break;}
+        *can_id = (*rule.frame_send_vec)[a];
+        SendOut(std_frame, fd_frame, can_op, error_flag);
       }
     }
 
@@ -374,119 +287,28 @@ private:
   bool canfd_;
   bool extended_;
 
-  std::vector<ArrayRuleCan> parser_array_ = std::vector<ArrayRuleCan>();
-
-  // return true when finish all package
-  bool Decode(
-    PROTOCOL_DATA_MAP & protocol_data_map,
-    T_FRAMEID frame_id,
-    uint8_t * raw_data,
+  void SendOut(
+    can_frame * std_frame,
+    canfd_frame * fd_frame,
+    std::shared_ptr<CanDev> can_op,
     bool & error_flag)
   {
-    DecodeVar(protocol_data_map, frame_id, raw_data, error_flag);
-    // array decode
-    for (auto & rule : parser_array_) {
-      auto offset = rule.get_offset(frame_id);
-      if (offset == -1) {continue;}
-      if (protocol_data_map.find(rule.array_name) != protocol_data_map.end()) {
-        ProtocolData * var = &protocol_data_map.at(rule.array_name);
-        size_t len = GetFrameDataLen(frame_id);
-        if (var->len < rule.all_max_len) {
-          error_flag = true;
-          error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
-          printf(
-            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\" length overflow\n" C_END,
-            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str());
-          continue;
-        }
-        if (offset == rule.array_expect) {
-          // main decode begin
-          uint8_t * data_area = reinterpret_cast<uint8_t *>(var->addr);
-          data_area += rule.waiting_index;
-          for (int a = 0; a < static_cast<int>(len); a++) {
-            data_area[a] = raw_data[a];
-          }
-          rule.array_expect++;
-          rule.waiting_index += len;
-          if (offset == static_cast<int>(rule.package_num) - 1) {
-            var->loaded = true;
-            rule.array_expect = 0;
-            rule.waiting_index = 0;
-          }
-        } else {
-          T_FRAMEID expect_id = 0x0;
-          for (auto & id : rule.frameID_map) {
-            if (id.second == rule.array_expect) {
-              expect_id = id.first;
-              break;
-            }
-          }
-          rule.array_expect = 0;
-          rule.waiting_index = 0;
-          error_flag = true;
-          error_clct_->LogState(ErrorCode::RUNTIME_UNEXPECT_ORDERPACKAGE);
-          printf(
-            C_RED "[%s_PARSER][ERROR][%s] array_name:\"%s\", expect frame:\"%s\", "
-            "but get \"%s\", reset expect frame_id and you need send array in order\n" C_END,
-            parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(),
-            GetFrameName(expect_id).c_str(), GetFrameName(frame_id).c_str());
-        }
-      } else {
+    if (canfd_) {
+      if (fd_frame == nullptr || can_op->send_can_message(*fd_frame) == false) {
         error_flag = true;
-        error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
+        error_clct_->LogState(ErrorCode::CAN_FD_SEND_ERROR);
         printf(
-          C_RED "[%s_PARSER][ERROR][%s] Can't find array_name:\"%s\" in protocol_data_map\n"
-          "\tYou may need use LINK_VAR() to link data class/struct in protocol_data_map\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str());
+          C_RED "[%s_PARSER][ERROR][%s] Send fd_frame error\n" C_END,
+          parser_name_.c_str(), out_name_.c_str());
       }
-    }
-    return CheckAllFrameRecv(protocol_data_map);
-  }
-
-  bool Encode(
-    const std::string & CMD,
-    canid_t & frame_id,
-    uint8_t * can_data,
-    const std::vector<uint8_t> & data)
-  {
-    if (parser_cmd_map_.find(CMD) != parser_cmd_map_.end()) {
-      auto & cmd = parser_cmd_map_.at(CMD);
-      frame_id = cmd.frame_id;
-      uint8_t ctrl_len = cmd.ctrl_len;
-      bool no_warn = true;
-      if (ctrl_len + data.size() > CAN_LEN()) {
-        no_warn = false;
-        error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
-        printf(
-          C_RED "[%s_PARSER][ERROR][%s][cmd:%s] CMD data overflow, "
-          "ctrl_len:%d + data_len:%ld > max_can_len:%d\n" C_END,
-          parser_name_.c_str(), out_name_.c_str(), CMD.c_str(), ctrl_len, data.size(), CAN_LEN());
-      }
-      for (int a = 0; a < CAN_LEN() && a < static_cast<int>(cmd.ctrl_data.size()); a++) {
-        can_data[a] = cmd.ctrl_data[a];
-      }
-      for (int a = ctrl_len; a < CAN_LEN() && a - ctrl_len < static_cast<int>(data.size()); a++) {
-        can_data[a] = data[a - ctrl_len];
-      }
-      return no_warn;
     } else {
-      error_clct_->LogState(ErrorCode::RULECMD_MISSING_ERROR);
-      printf(
-        C_RED "[%s_PARSER][ERROR][%s] can't find cmd:\"%s\"\n" C_END,
-        parser_name_.c_str(), out_name_.c_str(), CMD.c_str());
-      return false;
-    }
-  }
-
-  void CheckDataConflict(ArrayRuleCan & rule)
-  {
-    for (auto & can_id : rule.frameID_map) {
-      if (data_check_->find(can_id.first) == data_check_->end()) {
-        data_check_->insert(
-          std::pair<canid_t, std::vector<uint8_t>>(
-            can_id.first, std::vector<uint8_t>(CAN_LEN())));
+      if (std_frame == nullptr || can_op->send_can_message(*std_frame) == false) {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::CAN_STD_SEND_ERROR);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s] Send std_frame error\n" C_END,
+          parser_name_.c_str(), out_name_.c_str());
       }
-      CheckVarConflict(can_id.first, 0, CAN_LEN() - 1);
     }
   }
 };  // class CanParser

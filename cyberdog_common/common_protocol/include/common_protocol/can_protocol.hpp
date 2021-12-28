@@ -101,7 +101,7 @@ public:
   {
     if (can_parser_->IsCanfd() == false) {
       can_frame tx_frame;
-      if (can_parser_->Encode(tx_frame, CMD, data) &&
+      if (can_parser_->Encode(CMD, tx_frame, data) &&
         can_op_ != nullptr && can_op_->send_can_message(tx_frame))
       {
         return true;
@@ -113,7 +113,7 @@ public:
       }
     } else {
       canfd_frame tx_frame;
-      if (can_parser_->Encode(tx_frame, CMD, data) &&
+      if (can_parser_->Encode(CMD, tx_frame, data) &&
         can_op_ != nullptr && can_op_->send_can_message(tx_frame))
       {
         return true;
