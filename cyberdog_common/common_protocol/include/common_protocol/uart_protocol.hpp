@@ -15,11 +15,13 @@
 #ifndef COMMON_PROTOCOL__UART_PROTOCOL_HPP_
 #define COMMON_PROTOCOL__UART_PROTOCOL_HPP_
 
+#include <vector>
 #include <string>
 #include <memory>
 
 #include "common_protocol/common.hpp"
 #include "common_protocol/protocol_base.hpp"
+#include "common_parser/uart_parser.hpp"
 
 namespace cyberdog
 {
@@ -38,8 +40,31 @@ public:
     this->out_name_ = out_name;
     this->error_clct_ = (error_clct == nullptr) ? std::make_shared<StateCollector>() : error_clct;
     this->for_send_ = for_send;
-  }
 
+    uart_parser_ = std::make_shared<UartParser>(
+      this->error_clct_->CreatChild(), toml_config, this->out_name_);
+    printf(
+      "[UART_PROTOCOL][INFO] Creat uart protocol[%s]: %d error, %d warning\n",
+      this->out_name_.c_str(), GetInitErrorNum(), GetInitWarnNum());
+  }
+  ~UartProtocol() {}
+
+  bool Operate(
+    const std::string & CMD,
+    const std::vector<uint8_t> & data = std::vector<uint8_t>()) override
+  {return false;}
+
+  bool SendSelfData() override
+  {return false;}
+
+  int GetInitErrorNum() override {return uart_parser_->GetInitErrorNum();}
+  int GetInitWarnNum() override {return uart_parser_->GetInitWarnNum();}
+
+  bool IsRxTimeout() override {return false;}
+  bool IsTxTimeout() override {return false;}
+
+private:
+  std::shared_ptr<UartParser> uart_parser_;
 };
 
 

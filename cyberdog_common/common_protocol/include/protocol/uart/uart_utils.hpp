@@ -22,9 +22,7 @@ namespace common
 
 // UartDev ///////////////////////////////////////////////////////////////////////////////////
 class UartDev
-{
-
-};  // class UartDev
+{};  // class UartDev
 
 }  // namespace common
 }  // namespace cyberdog

@@ -22,6 +22,7 @@
 
 #include "common_protocol/protocol_base.hpp"
 #include "common_protocol/can_protocol.hpp"
+#include "common_protocol/uart_protocol.hpp"
 
 #define XNAME(x) (#x)
 #define LINK_VAR(var) LinkVar( \
@@ -128,6 +129,9 @@ private:
 
     if (protocol_name == "can") {
       base_ = std::make_shared<CanProtocol<TDataClass>>(
+        error_clct_.CreatChild(), out_name, toml_config, for_send);
+    } else if (protocol_name == "uart") {
+      base_ = std::make_shared<UartProtocol<TDataClass>>(
         error_clct_.CreatChild(), out_name, toml_config, for_send);
     } else if (protocol_name == "spi") {
       // todo when need

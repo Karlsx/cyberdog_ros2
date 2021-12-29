@@ -528,6 +528,9 @@ TEST(CommonProtocolTest_CAN, initTest_failed_9) {
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::CAN_FD_SEND_ERROR), 15U);
+
+  path = std::string(PASER_PATH) + "/uart/initTest_success.toml";
+  auto p = std::make_shared<EVM::Protocol<testing_full_var>>(path, false);
 }
 
 int main(int argc, char ** argv)

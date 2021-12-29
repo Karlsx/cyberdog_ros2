@@ -30,6 +30,7 @@ namespace cyberdog
 namespace common
 {
 #define T_FRAMEID uint32_t
+#define T_FRAMESIZE size_t
 
 class FrameRuleBase
 {
@@ -43,8 +44,13 @@ public:
     error_clct = clct;
     warn_flag = false;
     frame_id = all_frame_num++;
-    data_len = toml_at<size_t>(table, "data_len", error_clct);
     frame_name = toml_at<std::string>(table, "frame_name", error_clct);
+    data_len = toml_at<T_FRAMESIZE>(table, "frame_data_len", error_clct);
+    auto frame_start = toml_at<std::string>(table, "frame_start", error_clct);
+    auto frame_end = toml_at<std::string>(table, "frame_end", error_clct);
+    auto frame_check = toml_at<std::string>(table, "frame_check", error_clct);
+    HEXtoVEC(frame_start, start_vec, error_clct);
+    HEXtoVEC(frame_end, end_vec, error_clct);
 
     if (frame_name == "") {
       error_clct->LogState(ErrorCode::RULEFRAME_ILLEGAL_FRAMENAME);
@@ -54,7 +60,7 @@ public:
     }
   }
 
-  explicit FrameRuleBase(CHILD_STATE_CLCT clct, size_t len, std::string name, T_FRAMEID id)
+  explicit FrameRuleBase(CHILD_STATE_CLCT clct, T_FRAMESIZE len, std::string name, T_FRAMEID id)
   {
     error_clct = clct;
     warn_flag = false;
@@ -65,8 +71,10 @@ public:
 
   CHILD_STATE_CLCT error_clct;
   bool warn_flag;
-  size_t data_len;
+  T_FRAMESIZE data_len;
   T_FRAMEID frame_id;
+  std::vector<uint8_t> start_vec;
+  std::vector<uint8_t> end_vec;
   std::string frame_name;
 
 private:
@@ -308,6 +316,7 @@ public:
   std::vector<uint8_t> ctrl_data;
 };  // class CmdRuleBase
 
+// ParserBase ////////////////////////////////////////////////////////////////////////////////////
 class ParserBase
 {
 public:
@@ -429,7 +438,7 @@ protected:
 
   // Tools //////////////////////////////////////////////////////
 
-  size_t GetFrameDataLen(T_FRAMEID frame_id)
+  T_FRAMESIZE GetFrameDataLen(T_FRAMEID frame_id)
   {
     if (parser_frame_map_.find(frame_id) != parser_frame_map_.end()) {
       return parser_frame_map_.at(frame_id).data_len;
@@ -453,6 +462,21 @@ protected:
         parser_name_.c_str(), out_name_.c_str(), frame_id);
     }
     return "#unknow";
+  }
+
+  bool GetFrameID(const std::string & frame_name, T_FRAMEID & frame_id)
+  {
+    for (auto & a : parser_frame_map_) {
+      if (a.second.frame_name == frame_name) {
+        frame_id = a.second.frame_id;
+        return true;
+      }
+    }
+    error_clct_->LogState(ErrorCode::RULEFRAME_MISSING_ERROR);
+    printf(
+      C_RED "[%s_PARSER][ERROR][%s] Can't find frame:\"%s\"\n" C_END,
+      parser_name_.c_str(), out_name_.c_str(), frame_name.c_str());
+    return false;
   }
 
   uint8_t CreatMask(uint8_t h_bit, uint8_t l_bit)

@@ -1,0 +1,35 @@
+# Testing normal usage
+protocol = "uart"
+name = "initTest_success"
+
+[[frame]]
+frame_name = "frame_1"
+frame_data_len = 64
+frame_start = "0xFF01"
+frame_end = "0xEE01"
+frame_check = "crc16"
+
+[[frame]]
+frame_name = "frame_2"
+frame_data_len = 32
+frame_start = "0xFF02"
+frame_end = "0xEE02"
+frame_check = "crc16"
+
+[[frame]]
+frame_name = "frame_3"
+frame_data_len = 16
+frame_start = "0xFF03"
+frame_end = "0xEE03"
+frame_check = "crc16"
+
+[[array]]
+package_num = 3
+frame_id = ["frame_1", "frame_2", "frame_3"]
+array_name = "array_name_1"
+
+[[cmd]]
+cmd_name = "cmd_1"
+frame = "frame_2"
+ctrl_len = 2
+ctrl_data = ["0x06", "0x13"]

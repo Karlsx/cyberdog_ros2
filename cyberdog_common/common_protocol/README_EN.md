@@ -182,9 +182,9 @@ Example:
 
 ```toml
 # -- common params -- #
-# protocol = "can"             (string)
-# name = "can_protocol_name"     (string)
-# [delete] for_send = false  (true / false)
+# protocol = "can"            (string)
+# name = "can_protocol_name"  (string)
+# [delete] for_send = false   (true / false)
 protocol = "can"
 name = "can_protocol_1"
 
@@ -200,9 +200,9 @@ timeout_us = 1000000
 
 # -- data_var -- #
 # [[var]]
-# can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX)
+# can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX32)
 # var_name = "var_name_1"                   (string)
-# var_type = "float"                      
+# var_type = "float"
 #            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool / u8_array)
 # parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
 # [optional] var_zoom = 1.0                 (float)
@@ -227,8 +227,8 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8          (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[package_num])
+# package_num = 8              (size_t)
+# can_id = ["0x200", "0x207"]  (array<string-HEX32>[2] / array<string-HEX32>[package_num])
 # array_name = "array_name_1"  (string)
 # [optional] description = ""  (string)
 
@@ -247,9 +247,9 @@ description = "this is example named example_array_2"
 # -- cmd -- #
 # [[cmd]]
 # cmd_name = "cmd_name_1"      (string)
-# can_id = "0x02"              (string-HEX)
+# can_id = "0x02"              (string-HEX32)
 # [optional] ctrl_len = 0      (uint16)
-# [optional] ctrl_data = []    (array<string-HEX>[x] : where x <= ctrl_len)
+# [optional] ctrl_data = []    (array<string-HEX8>[x] : where x <= ctrl_len)
 # [optional] description = ""  (string)
 
 [[cmd]]
@@ -296,11 +296,11 @@ Parsing:
     - `package_num`: The expected number of CAN data frames received
     - `can_id`: Expected to receive CAN_ID array as array value
         - Manually specify all CAN_IDs (i.e. `can_id.length() == package_num`):
-            - `can_id` is `array<string-HEX>[package_num]`, which is a `hexadecimal string` with length `package_num`
+            - `can_id` is `array<string-HEX32>[package_num]`, which is a `hexadecimal string` with length `package_num`
             - All data will be filled in the order of the array `index` according to the specified CAN_ID order, that is, the `index` in `can_id` can be queried by CAN_ID, and the filling will be carried out based on `array[index * 8]`
             - See the example table below for detailed analysis (`Example 5`)
         - Automatically specify continuous CAN_ID (ie `can_id.length() != package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
-            - `can_id` is `array<string-HEX>[2]`, which is a `hexadecimal string` of length 2
+            - `can_id` is `array<string-HEX32>[2]`, which is a `hexadecimal string` of length 2
             - All data will be filled in the order of the array `index` according to the specified CAN_ID order, that is, the `index` in `can_id` can be queried by CAN_ID, and the filling will be carried out based on `array[index * 8]`
             - See the example table below for detailed analysis (`Example 6`)
     - `array_name`: the name of the array to be parsed (that is, the name of the array linked with `LINK_VAR(var)` in the code)

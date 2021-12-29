@@ -69,6 +69,7 @@ enum ErrorCode
   RULEFRAME_ILLEGAL_FRAMENAME,
   RULEFRAME_SAMEFRAMENAME_ERROR,
   RULEFRAME_SAMEFRAMEID_ERROR,
+  RULEFRAME_MISSING_ERROR,
 
   // ********************************* //
   RULE_SAMENAME_ERROR,
@@ -264,7 +265,7 @@ unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct)
   for (auto & ch : str) {
     if (start) {
       if (ch == ' ' || ch == '\'') {continue;}
-      id *= 16;
+      id <<= 4;
       if ('0' <= ch && ch <= '9') {
         id += ch - '0';
       } else if ('a' <= ch && ch <= 'f') {
@@ -290,10 +291,47 @@ unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct)
   return id;
 }
 
+bool HEXtoVEC(const std::string & str, std::vector<uint8_t> & vec, CHILD_STATE_CLCT clct)
+{
+  vec = std::vector<uint8_t>();
+  bool start = false;
+  bool half = false;
+  uint8_t tmp = 0;
+  for (auto & ch : str) {
+    if (start) {
+      if (ch == ' ' || ch == '\'') {continue;}
+      if ('0' <= ch && ch <= '9') {
+        tmp = ch - '0';
+      } else if ('a' <= ch && ch <= 'f') {
+        tmp = ch - 'a' + 10;
+      } else if ('A' <= ch && ch <= 'F') {
+        tmp = ch - 'A' + 10;
+      } else {
+        if (clct != nullptr) {clct->LogState(ErrorCode::HEXTOUINT_ILLEGAL_CHAR);}
+        printf(
+          C_RED "[PROTOCOL_BASE][ERROR] HEX string:\"%s\" format error, "
+          "illegal char:\"%c\"\n" C_END, str.c_str(), ch);
+        return false;
+      }
+      if (half) {vec[vec.size() - 1] |= tmp;} else {vec.push_back(tmp << 4);}
+      half = !half;
+    }
+    if (ch == 'x' || ch == 'X') {start = true;}
+  }
+  if (start == false) {
+    if (clct != nullptr) {clct->LogState(ErrorCode::HEXTOUINT_ILLEGAL_START);}
+    printf(
+      C_RED "[PROTOCOL_BASE][ERROR] HEX string:\"%s\" format error, need start with \"0x\"\n" C_END,
+      str.c_str());
+    return false;
+  }
+  return true;
+}
+
 std::string UINTto8HEX(unsigned int hex)
 {
   char str[11];
-  snprintf(str, 11, "0x%08x", hex);
+  snprintf(str, sizeof(str), "0x%08x", hex);
   return std::string(str);
 }
 

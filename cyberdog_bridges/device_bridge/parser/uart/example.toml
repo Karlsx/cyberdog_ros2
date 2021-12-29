@@ -10,28 +10,48 @@ name = "uart_device_name"
 
 # -- frame_def -- #
 # [[frame]]
-# frame_name = "frame_name_1"  (string)
-# [optional] frame_start = 
-# [optional] frame_end = 
-# [optional] frame_crc = 
-# [optional] frame_len_pos = []
+# frame_name = "frame_name_1"       (string)
+# frame_data_len = 64               (size_t)
+# [optional] frame_start = "0xFF"   (string-HEX)
+# [optional] frame_end = "0xEE"     (string-HEX)
+# [optional] frame_check = "crc16"  (string)
 
 
 # -- data_var -- #
 # [[var]]
 # frame = "frame_name_1"                    (string)
 # var_name = "var_name_1"                   (string)
-# var_type = "float"                      
-#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+# var_type = "float"
+#            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool / u8_array)
 # parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
 # [optional] var_zoom = 1.0                 (float)
 # [optional] parser_type = "auto"           (bit / var / auto)
 # [optional] description = ""               (string)
 
 [[var]]
-
+frame = "frame_name_1"
 var_name = "example_var_1"
 var_type = "double"
 parser_param = [0, 7]
 var_zoom = 0.0001
 description = "this is example named example_var_1"
+
+# -- data_array -- #
+# [[array]]
+# package_num = 8                              (size_t)
+# frame_id = ["frame_name_1", "frame_name_2"]  (array<string>[package_num])
+# array_name = "array_name_1"                  (string)
+# [optional] description = ""                  (string)
+
+[[array]]
+package_num = 2
+frame_id = ["frame_name_1", "frame_name_2"]
+array_name = "array_name_1"
+description = ""
+
+[[cmd]]
+cmd_name = "example_cmd_1"
+frame = "frame_name_1"
+ctrl_len = 2
+ctrl_data = ["0x06", "0x13"]
+description = "this is example named example_cmd_1"

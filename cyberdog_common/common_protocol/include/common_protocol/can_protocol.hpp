@@ -52,7 +52,7 @@ public:
       this->error_clct_->CreatChild(), toml_config, this->out_name_);
     printf(
       "[CAN_PROTOCOL][INFO] Creat can protocol[%s]: %d error, %d warning\n",
-      this->out_name_.c_str(), can_parser_->GetInitErrorNum(), can_parser_->GetInitWarnNum());
+      this->out_name_.c_str(), GetInitErrorNum(), GetInitWarnNum());
     auto recv_list = can_parser_->GetRecvList();
     int recv_num = recv_list.size();
     bool send_only = (recv_num == 0) ? true : this->for_send_;

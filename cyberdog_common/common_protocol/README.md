@@ -182,9 +182,9 @@ int main(int argc, char ** argv)
 
 ```toml
 # -- common params -- #
-# protocol = "can"             (string)
-# name = "can_protocol_name"     (string)
-# [delete] for_send = false  (true / false)
+# protocol = "can"            (string)
+# name = "can_protocol_name"  (string)
+# [delete] for_send = false   (true / false)
 protocol = "can"
 name = "can_protocol_1"
 
@@ -200,9 +200,9 @@ timeout_us = 1000000
 
 # -- data_var -- #
 # [[var]]
-# can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX)
+# can_id = "0x0300 00 00" / "0x0300'00'00"  (string-HEX32)
 # var_name = "var_name_1"                   (string)
-# var_type = "float"                      
+# var_type = "float"
 #            (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool / u8_array)
 # parser_param = [0, 3]                     (array<uint8>[2] / array<uint8>[3])
 # [optional] var_zoom = 1.0                 (float)
@@ -227,8 +227,8 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8          (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX>[2] / array<string-HEX>[package_num])
+# package_num = 8              (size_t)
+# can_id = ["0x200", "0x207"]  (array<string-HEX32>[2] / array<string-HEX32>[package_num])
 # array_name = "array_name_1"  (string)
 # [optional] description = ""  (string)
 
@@ -247,9 +247,9 @@ description = "this is example named example_array_2"
 # -- cmd -- #
 # [[cmd]]
 # cmd_name = "cmd_name_1"      (string)
-# can_id = "0x02"              (string-HEX)
+# can_id = "0x02"              (string-HEX32)
 # [optional] ctrl_len = 0      (uint16)
-# [optional] ctrl_data = []    (array<string-HEX>[x] : where x <= ctrl_len)
+# [optional] ctrl_data = []    (array<string-HEX8>[x] : where x <= ctrl_len)
 # [optional] description = ""  (string)
 
 [[cmd]]
@@ -296,11 +296,11 @@ description = "this is example named example_cmd_1"
     - `package_num` : 预期接收的CAN数据帧数量
     - `can_id` : 预期接收作为数组值的CAN_ID数组
         - 手动指定所有CAN_ID(即`can_id.length() == package_num`) :
-            - `can_id`为`array<string-HEX>[package_num]`，即长度为`package_num`的`十六进制字符串`
+            - `can_id`为`array<string-HEX32>[package_num]`，即长度为`package_num`的`十六进制字符串`
             - 所有数据将依照所指定的CAN_ID顺序，以数组`index`顺序装填，即通过CAN_ID查询在`can_id`中的`index`，按`array[index * 8]`为基准进行装填
             - 详细解析见下方示例表格(`例5`)
         - 自动指定连续CAN_ID(即`can_id.length() ！= package_num && can_id.length() == 2 && can_id[0] < can_id[1]`)
-            - `can_id`为`array<string-HEX>[2]`，即长度为2的`十六进制字符串`
+            - `can_id`为`array<string-HEX32>[2]`，即长度为2的`十六进制字符串`
             - 所有数据将依照所指定的CAN_ID顺序，以数组`index`顺序装填，即通过CAN_ID查询在`can_id`中的`index`，按`array[index * 8]`为基准进行装填
             - 详细解析见下方示例表格(`例6`)
     - `array_name` : 需要解析到的数组名称(即在代码中使用`LINK_VAR(var)`链接的数组名称)

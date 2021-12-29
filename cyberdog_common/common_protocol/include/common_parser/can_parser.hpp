@@ -61,26 +61,26 @@ public:
     : ArrayRuleBase(clct, table, out_name, PARSER_NAME_CAN)
     {
       std::string parser_name = PARSER_NAME_CAN;
-      auto tmp_can_id = toml_at<std::vector<std::string>>(table, "can_id", error_clct);
-      auto canid_num = tmp_can_id.size();
-      if (canid_num == package_num) {
+      auto tmp_frame_id = toml_at<std::vector<std::string>>(table, "can_id", error_clct);
+      auto frameid_num = tmp_frame_id.size();
+      if (frameid_num == package_num) {
         int index = 0;
-        for (auto & single_id : tmp_can_id) {
-          canid_t canid = HEXtoUINT(single_id, error_clct);
-          CanidRangeCheck(canid, extended, out_name, array_name, error_clct);
-          if (frame_map.find(canid) == frame_map.end()) {
-            frame_map.insert(std::pair<canid_t, int>(canid, index++));
+        for (auto & single_id : tmp_frame_id) {
+          T_FRAMEID frame_id = HEXtoUINT(single_id, error_clct);
+          CanidRangeCheck(frame_id, extended, out_name, array_name, error_clct);
+          if (frame_map.find(frame_id) == frame_map.end()) {
+            frame_map.insert(std::pair<T_FRAMEID, int>(frame_id, index++));
           } else {
             error_clct->LogState(ErrorCode::RULEARRAY_SAMECANID_ERROR);
             printf(
               C_RED "[%s_PARSER][ERROR][%s][array:%s] array error, "
               "get same can_id:\"0x%x\"\n" C_END,
-              parser_name.c_str(), out_name.c_str(), array_name.c_str(), canid);
+              parser_name.c_str(), out_name.c_str(), array_name.c_str(), frame_id);
           }
         }
         // continuous check
         bool first = true;
-        canid_t last_id;
+        T_FRAMEID last_id;
         for (auto & id : frame_map) {
           if (first == true) {
             first = false;
@@ -96,19 +96,19 @@ public:
             break;
           }
         }
-      } else if (package_num > 2 && canid_num == 2) {
-        canid_t start_id = HEXtoUINT(tmp_can_id[0], error_clct);
-        canid_t end_id = HEXtoUINT(tmp_can_id[1], error_clct);
+      } else if (package_num > 2 && frameid_num == 2) {
+        T_FRAMEID start_id = HEXtoUINT(tmp_frame_id[0], error_clct);
+        T_FRAMEID end_id = HEXtoUINT(tmp_frame_id[1], error_clct);
         if (end_id - start_id + 1 == package_num) {
           int index = 0;
-          for (canid_t a = start_id; a <= end_id; a++) {
-            frame_map.insert(std::pair<canid_t, int>(a, index++));
+          for (T_FRAMEID a = start_id; a <= end_id; a++) {
+            frame_map.insert(std::pair<T_FRAMEID, int>(a, index++));
           }
         } else {
           error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
           printf(
             C_RED "[%s_PARSER][ERROR][%s][array:%s] simple array method must follow: "
-            "(canid low to high) and (high - low + 1 == package_num)\n" C_END,
+            "(frame_id low to high) and (high - low + 1 == package_num)\n" C_END,
             parser_name.c_str(), out_name.c_str(), array_name.c_str());
         }
       } else {
@@ -116,10 +116,10 @@ public:
         printf(
           C_RED "[%s_PARSER][ERROR][%s][array:%s] toml_array:\"can_id\" length not match "
           "package_num, toml_array:\"can_id\" length=%ld but package_num=%ld\n" C_END,
-          parser_name.c_str(), out_name.c_str(), array_name.c_str(), canid_num, package_num);
+          parser_name.c_str(), out_name.c_str(), array_name.c_str(), frameid_num, package_num);
       }
     }
-  }; // class ArrayRuleCan
+  };  // class ArrayRuleCan
 
   class CmdRuleCan : public CmdRuleBase
   {
@@ -147,14 +147,11 @@ public:
     extended_ = toml::find_or<bool>(toml_config, "extended_frame", false);
 
     auto var_list = toml::find_or<std::vector<toml::table>>(
-      toml_config, "var",
-      std::vector<toml::table>());
+      toml_config, "var", std::vector<toml::table>());
     auto array_list = toml::find_or<std::vector<toml::table>>(
-      toml_config, "array",
-      std::vector<toml::table>());
+      toml_config, "array", std::vector<toml::table>());
     auto cmd_list = toml::find_or<std::vector<toml::table>>(
-      toml_config, "cmd",
-      std::vector<toml::table>());
+      toml_config, "cmd", std::vector<toml::table>());
 
     CreateCheck();
     // get var rule
@@ -242,7 +239,7 @@ public:
     std::shared_ptr<CanDev> can_op)
   {
     bool error_flag = false;
-    canid_t * can_id;
+    T_FRAMEID * can_id;
     uint8_t * data;
 
     can_frame * std_frame = nullptr;
