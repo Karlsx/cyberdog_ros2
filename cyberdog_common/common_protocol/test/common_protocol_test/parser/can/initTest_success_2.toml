@@ -1,6 +1,6 @@
 # Testing Operate data get
 protocol = "can"
-name = "initTest_failed_7"
+name = "initTest_success_2"
 
 can_interface = "can0"
 extended_frame = false
