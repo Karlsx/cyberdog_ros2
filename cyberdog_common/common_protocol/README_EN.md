@@ -47,7 +47,7 @@ template<typename TDataClass>
 class Protocol
 {
 public:
-  explicit Protocol(const std::string & protocol_toml_path);
+  explicit Protocol(const std::string & protocol_toml_path, bool for_send = false， int canid_offset = 0);
 
   std::shared_ptr<TDataClass> GetData();
 
@@ -67,10 +67,11 @@ public:
 
 > Constructor, create instance object through external description file
 > ```cpp
-> explicit Protocol(const std::string & protocol_toml_path, bool for_send = false);
+> explicit Protocol(const std::string & protocol_toml_path, bool for_send = false， int canid_offset = 0);
 > ```
 > - `protocol_toml_path` : Description file address
 > - `for_send` : Send via toml description file, or receive via toml description file (receive by default)
+> - `canid_offset` : Offset datum `can_id` with `+` symbol by `canid_offset` amount according to toml description file (default is not offset)
 
 > Get custom TDataClass type data: return shared_ptr pointing to internal data
 > ```cpp
@@ -218,7 +219,7 @@ var_zoom = 0.0001
 description = "this is example named example_var_1"
 
 [[var]]
-can_id = "0x0300'00'01"
+can_id = "0x0300'00'01+"
 var_name = "example_var_2"
 var_type = "u8"
 parser_param = [0, 7, 4]
@@ -271,7 +272,7 @@ Parsing:
     - [Optional] `canfd_enable`: Whether to use CAN_FD (requires system settings and CAN transceiver hardware support), the default default value is: `false`
     - [Optional] `timeout_us`: Receiving or sending timeout time (microseconds), mainly used to judge the receiving disconnection and prevent the card from being unable to proceed in the receiving or sending function during destructuring, the effective value is `1'000(1ms) )` to `3'000'000(3s)`, default default value: `3'000'000(3s)`
 - `data_var`: CAN protocol variable analysis rules
-    - `can_id`: ID to be received, a `hexadecimal string` beginning with `"0x"` or `"0X"`, the symbols `"'" (single quotation mark)` and `“ ”( Space)` Make arbitrary divisions to facilitate reading and writing, such as: `0x1FF'12'34` or `0x123 45 67`
+    - `can_id`: ID to be received, a `hexadecimal string` beginning with `"0x"` or `"0X"`, the symbols `"'" (single quotation mark)` and `“ ”( Space)` Make arbitrary divisions to facilitate reading and writing, such as: `0x1FF'12'34` or `0x123 45 67`; You can use the symbol `"+" (plus sign)` at the end to mark the `can_id` as a `base`, such as: `0x1FF+`, you can offset it when creating an instantiated object in the code to achieve the same copy The effect of the toml description file shared by all devices of the same type
     - `var_name`: The name of the variable that needs to be resolved (that is, the name of the variable linked with `LINK_VAR(var)` in the code)
     - `var_type`:
         - The variable type that needs to be resolved (that is, the variable type linked by `LINK_VAR(var)` in the code), and different types can be used in special circumstances (such as parsing `u8` to `u16` in the code), But the size of `size_of` cannot exceed the size in the code (that is, `u64` cannot be parsed into `u8` in the code)

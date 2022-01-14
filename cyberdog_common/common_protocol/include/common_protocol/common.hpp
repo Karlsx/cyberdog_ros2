@@ -258,13 +258,18 @@ std::string GetVarName(const std::string & full_name, StateCollector & clct)
   return var_name;
 }
 
-unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct)
+unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct, int canid_offset = 0)
 {
   unsigned int id = 0x0;
   bool start = false;
+  bool need_offset = false;
   for (auto & ch : str) {
     if (start) {
       if (ch == ' ' || ch == '\'') {continue;}
+      if (ch == '+') {
+        need_offset = true;
+        break;
+      }
       id <<= 4;
       if ('0' <= ch && ch <= '9') {
         id += ch - '0';
@@ -288,7 +293,7 @@ unsigned int HEXtoUINT(const std::string & str, CHILD_STATE_CLCT clct)
       C_RED "[PROTOCOL_BASE][ERROR] HEX string:\"%s\" format error, need start with \"0x\"\n" C_END,
       str.c_str());
   }
-  return id;
+  return need_offset ? (id + canid_offset) : id;
 }
 
 bool HEXtoVEC(const std::string & str, std::vector<uint8_t> & vec, CHILD_STATE_CLCT clct)

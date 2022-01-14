@@ -54,4 +54,18 @@ description = ""
 cmd_name = "CMD_4"
 can_id = "0x03"
 ctrl_len = 2
-ctrl_data = "0xF10613"
+ctrl_data = "0xf10F13"
+
+[[cmd]]
+description = ""
+cmd_name = "CMD_5"
+can_id = "0x03"
+ctrl_len = 2
+ctrl_data = "0F10613"
+
+[[cmd]]
+description = ""
+cmd_name = "CMD_6"
+can_id = "0x03"
+ctrl_len = 2
+ctrl_data = "0xfGGa"

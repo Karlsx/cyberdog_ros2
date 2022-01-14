@@ -41,11 +41,13 @@ public:
       CHILD_STATE_CLCT clct,
       int max_len,
       bool extended,
+      int canid_offset,
       const toml::table & table,
       const std::string & out_name)
     : VarRuleBase(clct, max_len, table, out_name, PARSER_NAME_CAN)
     {
-      frame_id = HEXtoUINT(toml_at<std::string>(table, "can_id", error_clct), error_clct);
+      frame_id = HEXtoUINT(
+        toml_at<std::string>(table, "can_id", error_clct), error_clct, canid_offset);
       CanidRangeCheck(frame_id, extended, out_name, var_name, error_clct);
     }
   };  // class VarRuleCan
@@ -56,6 +58,7 @@ public:
     explicit ArrayRuleCan(
       CHILD_STATE_CLCT clct,
       bool extended,
+      int canid_offset,
       const toml::table & table,
       const std::string & out_name)
     : ArrayRuleBase(clct, table, out_name, PARSER_NAME_CAN)
@@ -66,7 +69,7 @@ public:
       if (frameid_num == package_num) {
         int index = 0;
         for (auto & single_id : tmp_frame_id) {
-          T_FRAMEID frame_id = HEXtoUINT(single_id, error_clct);
+          T_FRAMEID frame_id = HEXtoUINT(single_id, error_clct, canid_offset);
           CanidRangeCheck(frame_id, extended, out_name, array_name, error_clct);
           if (frame_map.find(frame_id) == frame_map.end()) {
             frame_map.insert(std::pair<T_FRAMEID, int>(frame_id, index++));
@@ -97,8 +100,8 @@ public:
           }
         }
       } else if (package_num > 2 && frameid_num == 2) {
-        T_FRAMEID start_id = HEXtoUINT(tmp_frame_id[0], error_clct);
-        T_FRAMEID end_id = HEXtoUINT(tmp_frame_id[1], error_clct);
+        T_FRAMEID start_id = HEXtoUINT(tmp_frame_id[0], error_clct, canid_offset);
+        T_FRAMEID end_id = HEXtoUINT(tmp_frame_id[1], error_clct, canid_offset);
         if (end_id - start_id + 1 == package_num) {
           int index = 0;
           for (T_FRAMEID a = start_id; a <= end_id; a++) {
@@ -127,11 +130,13 @@ public:
     explicit CmdRuleCan(
       CHILD_STATE_CLCT clct,
       bool extended,
+      int canid_offset,
       const toml::table & table,
       const std::string & out_name)
     : CmdRuleBase(clct, table, out_name, PARSER_NAME_CAN)
     {
-      frame_id = HEXtoUINT(toml_at<std::string>(table, "can_id", error_clct), error_clct);
+      frame_id = HEXtoUINT(
+        toml_at<std::string>(table, "can_id", error_clct), error_clct, canid_offset);
       CanidRangeCheck(frame_id, extended, out_name, cmd_name, error_clct);
     }
   };  // class CmdRuleCan
@@ -140,6 +145,7 @@ public:
   CanParser(
     CHILD_STATE_CLCT error_clct,
     const toml::value & toml_config,
+    int canid_offset,
     const std::string & out_name)
   : ParserBase(error_clct, out_name, PARSER_NAME_CAN)
   {
@@ -156,7 +162,8 @@ public:
     CreateCheck();
     // get var rule
     for (auto & var : var_list) {
-      auto rule = VarRuleCan(error_clct_->CreatChild(), CAN_LEN(), extended_, var, out_name_);
+      auto rule = VarRuleCan(
+        error_clct_->CreatChild(), CAN_LEN(), extended_, canid_offset, var, out_name_);
       if (rule.error_clct->GetAllStateTimesNum() == 0) {
         auto frame = FrameRuleBase(
           error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(rule.frame_id), rule.frame_id);
@@ -166,7 +173,8 @@ public:
     }
     // get array rule
     for (auto & array : array_list) {
-      auto rule = ArrayRuleCan(error_clct_->CreatChild(), extended_, array, out_name_);
+      auto rule =
+        ArrayRuleCan(error_clct_->CreatChild(), extended_, canid_offset, array, out_name_);
       for (auto & a : rule.frame_map) {
         auto frame_id = a.first;
         auto frame = FrameRuleBase(
@@ -177,7 +185,7 @@ public:
     }
     // get cmd rule
     for (auto & cmd : cmd_list) {
-      auto rule = CmdRuleCan(error_clct_->CreatChild(), extended_, cmd, out_name_);
+      auto rule = CmdRuleCan(error_clct_->CreatChild(), extended_, canid_offset, cmd, out_name_);
       if (rule.error_clct->GetAllStateTimesNum() == 0) {
         auto frame = FrameRuleBase(
           error_clct_->CreatChild(), CAN_LEN(), UINTto8HEX(rule.frame_id), rule.frame_id);

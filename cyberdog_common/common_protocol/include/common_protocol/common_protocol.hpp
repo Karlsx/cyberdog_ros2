@@ -38,7 +38,10 @@ class Protocol
 {
 public:
   Protocol(const Protocol &) = delete;
-  explicit Protocol(const std::string & protocol_toml_path, bool for_send = false)
+  explicit Protocol(
+    const std::string & protocol_toml_path,
+    bool for_send = false,
+    int canid_offset = 0)
   {
     toml::value toml_config;
     if (toml_parse(toml_config, protocol_toml_path) == false) {
@@ -49,13 +52,13 @@ public:
       // TBD toml_config = LoadPrebuilt();
     }
 
-    Init(toml_config, for_send, protocol_toml_path);
+    Init(toml_config, for_send, canid_offset, protocol_toml_path);
     if (base_ == nullptr || base_->GetInitErrorNum() != 0) {
       error_clct_.LogState(ErrorCode::INIT_ERROR);
       printf(
         C_RED "[PROTOCOL][ERROR] toml file:\"%s\" init error, load prebuilt file\n" C_END,
         protocol_toml_path.c_str());
-      // TBD Init(LoadPrebuilt(), for_send);
+      // TBD Init(LoadPrebuilt(), for_send, canid_offset);
     }
   }
 
@@ -117,7 +120,11 @@ private:
   std::shared_ptr<TDataClass> tmp_data_;
   StateCollector error_clct_ = StateCollector();
 
-  void Init(toml::value & toml_config, bool for_send, const std::string & protocol_toml_path = "")
+  void Init(
+    toml::value & toml_config,
+    bool for_send,
+    int canid_offset,
+    const std::string & protocol_toml_path = "")
   {
     auto protocol_name = toml::find_or<std::string>(toml_config, "protocol", "#unknow");
     auto out_name = toml::find_or<std::string>(toml_config, "name", "#unknow");
@@ -126,20 +133,17 @@ private:
         "[PROTOCOL][INFO] Creat common protocol[%s], protocol:\"%s\", path:\"%s\"\n",
         out_name.c_str(), protocol_name.c_str(), protocol_toml_path.c_str());
     }
+    if (canid_offset != 0 && protocol_name != "can") {
+      printf(C_YELLOW "[PROTOCOL][WARN] Only can protocol support canid_offset" C_END);
+    }
 
     if (protocol_name == "can") {
       base_ = std::make_shared<CanProtocol<TDataClass>>(
-        error_clct_.CreatChild(), out_name, toml_config, for_send);
+        error_clct_.CreatChild(), out_name, toml_config, for_send, canid_offset);
     } else if (protocol_name == "uart") {
       base_ = std::make_shared<UartProtocol<TDataClass>>(
         error_clct_.CreatChild(), out_name, toml_config, for_send);
     } else if (protocol_name == "spi") {
-      // todo when need
-      error_clct_.LogState(ErrorCode::ILLEGAL_PROTOCOL);
-      printf(
-        C_RED "[PROTOCOL][ERROR] protocol:\"%s\" not support yet\n" C_END,
-        protocol_name.c_str());
-    } else if (protocol_name == "iic" || protocol_name == "i2c") {
       // todo when need
       error_clct_.LogState(ErrorCode::ILLEGAL_PROTOCOL);
       printf(

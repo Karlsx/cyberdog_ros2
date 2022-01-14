@@ -36,7 +36,8 @@ public:
     CHILD_STATE_CLCT error_clct,
     const std::string & out_name,
     const toml::value & toml_config,
-    bool for_send)
+    bool for_send,
+    int canid_offset)
   {
     this->out_name_ = out_name;
     this->error_clct_ = (error_clct == nullptr) ? std::make_shared<StateCollector>() : error_clct;
@@ -49,7 +50,7 @@ public:
     timeout_us = std::clamp(timeout_us, MIN_TIME_OUT_US, MAX_TIME_OUT_US);
 
     can_parser_ = std::make_shared<CanParser>(
-      this->error_clct_->CreatChild(), toml_config, this->out_name_);
+      this->error_clct_->CreatChild(), toml_config, canid_offset, this->out_name_);
     printf(
       "[CAN_PROTOCOL][INFO] Creat can protocol[%s]: %d error, %d warning\n",
       this->out_name_.c_str(), GetInitErrorNum(), GetInitWarnNum());

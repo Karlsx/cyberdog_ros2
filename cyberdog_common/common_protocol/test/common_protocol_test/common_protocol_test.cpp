@@ -315,6 +315,101 @@ TEST(CommonProtocolTest_CAN, initTest_success_1) {
   ASSERT_EQ(CLCT(), 0U);
 }
 
+class testing_var
+{
+public:
+  uint64_t u64_var;
+  uint8_t u8_array[8];
+};
+
+std::shared_ptr<testing_var> callback_data_testing_var = nullptr;
+void testing_var_callback(std::shared_ptr<testing_var> data)
+{
+  callback_data_testing_var = data;
+}
+
+// Testing Operate data get
+TEST(CommonProtocolTest_CAN, initTest_success_2) {
+  std::string path = std::string(PASER_PATH) + "/can/initTest_success_2.toml";
+  auto dv = EVM::Protocol<testing_var>(path);
+  dv.LINK_VAR(dv.GetData()->u64_var);
+  dv.LINK_VAR(dv.GetData()->u8_array);
+  dv.SetDataCallback(testing_var_callback);
+
+  ASSERT_EQ(callback_data_testing_var, nullptr);
+  dv.Operate(
+    "CMD_0", std::vector<uint8_t> {
+    0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8
+  });
+  dv.Operate(
+    "CMD_1", std::vector<uint8_t> {
+    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
+  });
+  ASSERT_NE(callback_data_testing_var, nullptr);
+  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2A3A4A5A6A7A8U);
+  for (int a = 0; a < 8; a++) {
+    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xB1U + a);
+  }
+  callback_data_testing_var = nullptr;
+
+  ASSERT_EQ(callback_data_testing_var, nullptr);
+  dv.Operate(
+    "CMD_0", std::vector<uint8_t> {
+    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
+  });
+  dv.Operate(
+    "CMD_2", std::vector<uint8_t> {
+    0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
+  });
+  ASSERT_NE(callback_data_testing_var, nullptr);
+  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2B3B4B5B6B7B8U);
+  for (int a = 0; a < 8; a++) {
+    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xC1U + a);
+  }
+  callback_data_testing_var = nullptr;
+}
+
+// Testing Operate data get with canid offset
+TEST(CommonProtocolTest_CAN, initTest_success_3) {
+  std::string path = std::string(PASER_PATH) + "/can/initTest_success_3.toml";
+  auto dv = EVM::Protocol<testing_var>(path, false, 6);
+  dv.LINK_VAR(dv.GetData()->u64_var);
+  dv.LINK_VAR(dv.GetData()->u8_array);
+  dv.SetDataCallback(testing_var_callback);
+
+  ASSERT_EQ(callback_data_testing_var, nullptr);
+  dv.Operate(
+    "CMD_0", std::vector<uint8_t> {
+    0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8
+  });
+  dv.Operate(
+    "CMD_1", std::vector<uint8_t> {
+    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
+  });
+  ASSERT_NE(callback_data_testing_var, nullptr);
+  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2A3A4A5A6A7A8U);
+  for (int a = 0; a < 8; a++) {
+    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xB1U + a);
+  }
+  callback_data_testing_var = nullptr;
+
+  ASSERT_EQ(callback_data_testing_var, nullptr);
+  dv.Operate(
+    "CMD_0", std::vector<uint8_t> {
+    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
+  });
+  dv.Operate(
+    "CMD_2", std::vector<uint8_t> {
+    0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
+  });
+  ASSERT_NE(callback_data_testing_var, nullptr);
+  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2B3B4B5B6B7B8U);
+  for (int a = 0; a < 8; a++) {
+    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xC1U + a);
+  }
+  callback_data_testing_var = nullptr;
+}
+
 // Testing missing toml file
 TEST(CommonProtocolTest_CAN, initTest_failed_0) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_0.toml";
@@ -403,6 +498,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_5) {
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::HEXTOUINT_ILLEGAL_CHAR), 1U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::HEXTOUINT_ILLEGAL_START), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULECMD_CTRLDATA_ERROR), 5U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULECMD_SAMECMD_ERROR), 1U);
 }
@@ -450,62 +547,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_6) {
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_ILLEGAL_LINKVAR), 2U);
 }
 
-class testing_var
-{
-public:
-  uint64_t u64_var;
-  uint8_t u8_array[8];
-};
-
-std::shared_ptr<testing_var> callback_data_testing_var = nullptr;
-void testing_var_callback(std::shared_ptr<testing_var> data)
-{
-  callback_data_testing_var = data;
-}
-
-// Testing Operate data get
-TEST(CommonProtocolTest_CAN, initTest_failed_7) {
-  std::string path = std::string(PASER_PATH) + "/can/initTest_failed_7.toml";
-  auto dv = EVM::Protocol<testing_var>(path);
-  dv.LINK_VAR(dv.GetData()->u64_var);
-  dv.LINK_VAR(dv.GetData()->u8_array);
-  dv.SetDataCallback(testing_var_callback);
-
-  ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
-    "CMD_0", std::vector<uint8_t> {
-    0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8
-  });
-  dv.Operate(
-    "CMD_1", std::vector<uint8_t> {
-    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
-  });
-  ASSERT_NE(callback_data_testing_var, nullptr);
-  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2A3A4A5A6A7A8U);
-  for (int a = 0; a < 8; a++) {
-    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xB1U + a);
-  }
-  callback_data_testing_var = nullptr;
-
-  ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
-    "CMD_0", std::vector<uint8_t> {
-    0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
-  });
-  dv.Operate(
-    "CMD_2", std::vector<uint8_t> {
-    0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
-  });
-  ASSERT_NE(callback_data_testing_var, nullptr);
-  ASSERT_EQ(callback_data_testing_var->u64_var, 0xA1A2B3B4B5B6B7B8U);
-  for (int a = 0; a < 8; a++) {
-    ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xC1U + a);
-  }
-  callback_data_testing_var = nullptr;
-}
-
 // Testing normal usage STD_CAN with std_frame send error
-TEST(CommonProtocolTest_CAN, initTest_failed_8) {
+TEST(CommonProtocolTest_CAN, initTest_failed_7) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_0.toml";
   auto dv = CreatDevice(path, false, true);
   auto & clct = dv->GetErrorCollector();
@@ -518,7 +561,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_8) {
 }
 
 // Testing normal usage FD_CAN with extended_frame send error
-TEST(CommonProtocolTest_CAN, initTest_failed_9) {
+TEST(CommonProtocolTest_CAN, initTest_failed_8) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_1.toml";
   auto dv = CreatDevice(path, false, true);
   auto & clct = dv->GetErrorCollector();

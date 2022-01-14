@@ -47,7 +47,7 @@ template<typename TDataClass>
 class Protocol
 {
 public:
-  explicit Protocol(const std::string & protocol_toml_path);
+  explicit Protocol(const std::string & protocol_toml_path, bool for_send = false， int canid_offset = 0);
 
   std::shared_ptr<TDataClass> GetData();
 
@@ -67,10 +67,11 @@ public:
 
 > 构造函数，通过外部描述文件创建实例对象
 > ```cpp
-> explicit Protocol(const std::string & protocol_toml_path, bool for_send = false);
+> explicit Protocol(const std::string & protocol_toml_path, bool for_send = false， int canid_offset = 0);
 > ```
 > - `protocol_toml_path` : 描述文件地址
 > - `for_send` : 通过toml描述文件发送，或通过toml描述文件接收(默认为接收)
+> - `canid_offset` : 根据toml描述文件将带`+`符号的基准`can_id`偏移`canid_offset`数量(默认不偏移)
 
 > 获取自定TDataClass类型数据 : 返回指向内部数据的shared_ptr
 > ```cpp
@@ -218,7 +219,7 @@ var_zoom = 0.0001
 description = "this is example named example_var_1"
 
 [[var]]
-can_id = "0x0300'00'01"
+can_id = "0x0300'00'01+"
 var_name = "example_var_2"
 var_type = "u8"
 parser_param = [0, 7, 4]
@@ -271,7 +272,7 @@ description = "this is example named example_cmd_1"
     - [可选] `canfd_enable` : 是否使用CAN_FD(需要系统设置及CAN收发器硬件支持)，默认缺省值为 : `false`
     - [可选] `timeout_us` : 接收或发送超时时间(微秒)，主要用于判断接收掉线和防止析构时卡在接收或发送函数中无法进行，有效值为`1'000(1ms)`到`3'000'000(3s)`，默认缺省值 : `3'000'000(3s)`
 - `data_var` : CAN协议变量解析规则
-    - `can_id` : 需要接收的ID，以`"0x"`或`"0X"`开头的`十六进制字符串`，可使用符号`“’”(单引号)`和`“ ”(空格)`进行任意分割以方便阅读和书写，如 : `0x1FF'12'34` 或 `0x123 45 67` 
+    - `can_id` : 需要接收的ID，以`"0x"`或`"0X"`开头的`十六进制字符串`，可使用符号`“’”(单引号)`和`“ ”(空格)`进行任意分割以方便阅读和书写，如 : `0x1FF'12'34` 或 `0x123 45 67`; 可在最后使用符号`“+”(加号)`将该`can_id`标记为`基准`，如 : `0x1FF+`， 在代码中创建实例化对象使用时可将其偏移，达到同一份toml描述文件由所有同类型设备共用的效果
     - `var_name` : 需要解析到的变量名称(即在代码中使用`LINK_VAR(var)`链接的变量名称)
     - `var_type` :
         - 需要解析的变量类型(即在代码中使用`LINK_VAR(var)`链接的变量类型)，在及其特殊情况下可使用不同类型(如将`u8`解析到代码中的`u16`)，但`size_of`的大小不能超过代码中的大小(即不可将`u64`解析到代码中的`u8`)
