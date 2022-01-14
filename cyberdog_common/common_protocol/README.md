@@ -246,17 +246,17 @@ description = "this is example named example_array_2"
 
 # -- cmd -- #
 # [[cmd]]
-# cmd_name = "cmd_name_1"      (string)
-# can_id = "0x02"              (string-HEX32)
-# [optional] ctrl_len = 0      (uint16)
-# [optional] ctrl_data = []    (array<string-HEX8>[x] : where x <= ctrl_len)
-# [optional] description = ""  (string)
+# cmd_name = "cmd_name_1"         (string)
+# can_id = "0x02"                 (string-HEX32)
+# [optional] ctrl_len = 0         (uint16)
+# [optional] ctrl_data = "" / []  (string-HEX / array<string-HEX8>[x] : where x <= ctrl_len)
+# [optional] description = ""     (string)
 
 [[cmd]]
 cmd_name = "example_cmd_1"
 can_id = "0x02"
 ctrl_len = 2
-ctrl_data = ["0x06", "0x13"]
+ctrl_data = "0x0613" #OR# ctrl_data = ["0x06", "0x13"]
 description = "this is example named example_cmd_1"
 ```
 
@@ -310,7 +310,9 @@ description = "this is example named example_cmd_1"
     - `can_id` : 指令传输所用CAN_ID
     - [可选] `ctrl_len` : 控制段长度，需满足`0 <= ctrl_len < MAX_CAN_LEN`，其中`MAX_CAN_LEN`在`STD_CAN`中为8，`FD_CAN`中为64，默认缺省值为 : `0`
     - [可选] `ctrl_data` : 
-        - 控制段数据，为`十六进制字符串数组`(十六进制字符串不超过十六进制的两位(即u8))，满足`0 <= ctrl_data.length() <= ctrl_len`，默认缺省值为 : `[]`
+        - 控制段数据，有两种表示方式：
+            - `十六进制字符串`，满足`0 <= x <= 2 * ctrl_len`(x为`0x`之后的字符数), 默认缺省值为 : `""`
+            - `十六进制字符串数组`(十六进制字符串不超过十六进制的两位(即u8))，满足`0 <= ctrl_data.length() <= ctrl_len`，默认缺省值为 : `[]`
     - [可选] `description` : 注释及使用描述
 
 示例集:

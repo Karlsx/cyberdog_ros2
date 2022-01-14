@@ -285,19 +285,22 @@ public:
         parser_name.c_str(), out_name.c_str());
     }
     ctrl_len = toml_at<uint16_t>(table, "ctrl_len", 0);
-    auto tmp_ctrl_data = toml_at<std::vector<std::string>>(table, "ctrl_data");
-    ctrl_data = std::vector<uint8_t>();
-    for (auto & str : tmp_ctrl_data) {
-      auto uint_hex = HEXtoUINT(str, error_clct);
-      if (uint_hex != (uint_hex & 0xFF)) {
-        error_clct->LogState(ErrorCode::RULECMD_CTRLDATA_ERROR);
-        printf(
-          C_RED "[%s_PARSER][ERROR][%s][cmd:%s] ctrl_data HEX to uint8 overflow, "
-          "HEX_string:\"%s\"\n" C_END,
-          parser_name.c_str(), out_name.c_str(), cmd_name.c_str(), str.c_str());
+    auto tmp_ctrl_data_str = toml_at<std::string>(table, "ctrl_data", "#error");
+    if (tmp_ctrl_data_str == "#error") {
+      auto tmp_ctrl_data = toml_at<std::vector<std::string>>(table, "ctrl_data");
+      ctrl_data = std::vector<uint8_t>();
+      for (auto & str : tmp_ctrl_data) {
+        auto uint_hex = HEXtoUINT(str, error_clct);
+        if (uint_hex != (uint_hex & 0xFF)) {
+          error_clct->LogState(ErrorCode::RULECMD_CTRLDATA_ERROR);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s][cmd:%s] ctrl_data HEX to uint8 overflow, "
+            "HEX_string:\"%s\"\n" C_END,
+            parser_name.c_str(), out_name.c_str(), cmd_name.c_str(), str.c_str());
+        }
+        ctrl_data.push_back(static_cast<uint8_t>(uint_hex & 0xFF));
       }
-      ctrl_data.push_back(static_cast<uint8_t>(uint_hex & 0xFF));
-    }
+    } else {HEXtoVEC(tmp_ctrl_data_str, ctrl_data, error_clct);}
     int size = ctrl_data.size();
     if (ctrl_len < size) {
       error_clct->LogState(ErrorCode::RULECMD_CTRLDATA_ERROR);

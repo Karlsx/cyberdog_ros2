@@ -246,17 +246,17 @@ description = "this is example named example_array_2"
 
 # -- cmd -- #
 # [[cmd]]
-# cmd_name = "cmd_name_1"      (string)
-# can_id = "0x02"              (string-HEX32)
-# [optional] ctrl_len = 0      (uint16)
-# [optional] ctrl_data = []    (array<string-HEX8>[x] : where x <= ctrl_len)
-# [optional] description = ""  (string)
+# cmd_name = "cmd_name_1"         (string)
+# can_id = "0x02"                 (string-HEX32)
+# [optional] ctrl_len = 0         (uint16)
+# [optional] ctrl_data = "" / []  (string-HEX / array<string-HEX8>[x] : where x <= ctrl_len)
+# [optional] description = ""     (string)
 
 [[cmd]]
 cmd_name = "example_cmd_1"
 can_id = "0x02"
 ctrl_len = 2
-ctrl_data = ["0x06", "0x13"]
+ctrl_data = "0x0613" #OR# ctrl_data = ["0x06", "0x13"]
 description = "this is example named example_cmd_1"
 ```
 
@@ -310,7 +310,9 @@ Parsing:
     - `can_id`: CAN_ID for command transmission
     - [Optional] `ctrl_len`: control segment length, which must meet `0 <= ctrl_len < MAX_CAN_LEN`, where `MAX_CAN_LEN` is 8 in `STD_CAN` and 64 in `FD_CAN`, the default value is: ` 0`
     - [Optional] `ctrl_data`:
-        - The control segment data is `hexadecimal string array` (the hexadecimal string does not exceed the two digits of hexadecimal (ie u8)), which satisfies `0 <= ctrl_data.length() <= ctrl_len `, the default default value is: `[]`
+        - Control segment data, there are two representations:
+             - `Hexadecimal string`, satisfying `0 <= x <= 2 * ctrl_len` (x is the number of characters after `0x`), default default value: `""`
+             - `Array of hexadecimal strings` (the hexadecimal string does not exceed two hexadecimal digits (ie u8)), satisfying `0 <= ctrl_data.length() <= ctrl_len`, default default Value is: `[]`
     - [Optional] `description`: Notes and usage description
 
 Example set:

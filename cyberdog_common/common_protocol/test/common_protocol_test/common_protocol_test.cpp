@@ -403,7 +403,7 @@ TEST(CommonProtocolTest_CAN, initTest_failed_5) {
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
-  ASSERT_GE(CLCT(EVM::ErrorCode::RULECMD_CTRLDATA_ERROR), 4U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RULECMD_CTRLDATA_ERROR), 5U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULECMD_SAMECMD_ERROR), 1U);
 }
 

@@ -62,15 +62,15 @@ description = "this is example named example_array_2"
 
 # -- cmd -- #
 # [[cmd]]
-# cmd_name = "cmd_name_1"      (string)
-# can_id = "0x02"              (string-HEX32)
-# [optional] ctrl_len = 0      (uint16)
-# [optional] ctrl_data = []    (array<string-HEX8>[x] : where x <= ctrl_len)
-# [optional] description = ""  (string)
+# cmd_name = "cmd_name_1"         (string)
+# can_id = "0x02"                 (string-HEX32)
+# [optional] ctrl_len = 0         (uint16)
+# [optional] ctrl_data = "" / []  (string-HEX / array<string-HEX8>[x] : where x <= ctrl_len)
+# [optional] description = ""     (string)
 
 [[cmd]]
 cmd_name = "example_cmd_1"
 can_id = "0x02"
 ctrl_len = 2
-ctrl_data = ["0x06", "0x13"]
+ctrl_data = "0x0613" #OR# ctrl_data = ["0x06", "0x13"]
 description = "this is example named example_cmd_1"

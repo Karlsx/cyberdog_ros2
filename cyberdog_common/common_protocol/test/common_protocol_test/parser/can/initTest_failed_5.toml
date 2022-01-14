@@ -48,3 +48,10 @@ cmd_name = "CMD_3"
 can_id = "0x03"
 ctrl_len = 2
 ctrl_data = ["0xF106", "0x13"]
+
+[[cmd]]
+description = ""
+cmd_name = "CMD_4"
+can_id = "0x03"
+ctrl_len = 2
+ctrl_data = "0xF10613"
