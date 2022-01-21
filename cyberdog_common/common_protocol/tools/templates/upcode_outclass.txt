@@ -1,0 +1,25 @@
+#include <memory>
+#include <functional>
+
+#include "common_protocol/common_protocol.hpp"
+
+class {$NAME}
+{
+public:
+{$VARS}
+};
+
+std::shared_ptr<cyberdog::common::Protocol<{$NAME}>> ptc;
+
+void {$NAME}_callback(std::shared_ptr<{$NAME}> data)
+{
+  
+}
+
+void {$NAME}_init(const std::string & protocol_toml_path, bool for_send, int canid_offset)
+{
+  ptc = std::make_shared<cyberdog::common::Protocol<{$NAME}>>(
+    protocol_toml_path, for_send, canid_offset);
+{$LINK_VARS}
+  ptc->SetDataCallback(std::function<void(std::shared_ptr<{$NAME}>)>({$NAME}_callback));
+}

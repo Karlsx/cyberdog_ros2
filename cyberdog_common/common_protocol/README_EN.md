@@ -13,21 +13,29 @@ The entire feature pack uses namespace `common_protocol`
 The function directory structure is as follows:
 ```
 include
+├── common_parser
+│   ├── can_parser.hpp
+│   ├── parser_base.hpp
+│   └── uart_parser.hpp
 ├── common_protocol
 │   ├── can_protocol.hpp
-│   ├── common_protocol.hpp
 │   ├── common.hpp
-│   └── protocol_base.hpp
-└── common_parser
-    └── can_parser.hpp
+│   ├── common_protocol.hpp
+│   ├── protocol_base.hpp
+│   └── uart_protocol.hpp
+└── protocol
 ```
-- common_protocol : General equipment, used to store the main body code
-    - common.hpp : General and tool codes
-    - common_protocol.hpp : Unified external interface
-    - protocol_base.hpp : Base class interface of different protocols
-    - [accomplish] can_protocol.hpp : Function realization of CAN protocol transmission, derived from protocol_base
-- common_parser : Universal parser, used to store protocol parsing code
-    - [accomplish] can_parser.hpp : Analysis and realization of CAN protocol transmission
+- common_protocol : Common device, used to store the main code
+     - common.hpp : common and tool code
+     - common_protocol.hpp : External unified interface
+     - protocol_base.hpp : base class interface for different protocols
+     - [implementation] can_protocol.hpp : Function implementation of CAN protocol transmission, derived from protocol_base
+     - [implementation] uart_protocol.hpp : function implementation of UART protocol transmission, derived from protocol_base
+- common_parser : Common parser, used to store protocol parsing code
+     - parser_base.hpp : base class interface for different parsers
+     - [implementation] can_parser.hpp : The parsing implementation of CAN protocol transmission, derived from parser_base
+     - [implementation] uart_parser.hpp : Parsing implementation of UART protocol transmission, derived from parser_base
+- protocol : used to store the specific basic implementation of each protocol
 
 The description file storage directory see : [`cyberdog_bridges/README.md`](TBD)
 
@@ -41,6 +49,8 @@ This class is used for the main external interface:
     XNAME(var), \
     cyberdog::common::ProtocolData(sizeof((var)), static_cast<void *>(&(var))))
 
+namespace cyberdog
+{
 namespace common
 {
 template<typename TDataClass>
@@ -63,6 +73,7 @@ public:
   StateCollector & GetErrorCollector();
 };  // class Protocol
 }  // namespace common
+}  // namespace cyberdog
 ```
 
 > Constructor, create instance object through external description file

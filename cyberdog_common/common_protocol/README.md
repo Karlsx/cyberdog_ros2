@@ -8,26 +8,34 @@ common_protocol是一个通用的外设抽象类，可动态灵活的配置基�
 ***
 ## 1.结构简介
 
-整个功能包使用命名空间`common_protocol`
+整个功能包使用命名空间`cyberdog::common`
 
 功能目录结构如下:
 ```
 include
+├── common_parser
+│   ├── can_parser.hpp
+│   ├── parser_base.hpp
+│   └── uart_parser.hpp
 ├── common_protocol
 │   ├── can_protocol.hpp
-│   ├── common_protocol.hpp
 │   ├── common.hpp
-│   └── protocol_base.hpp
-└── common_parser
-    └── can_parser.hpp
+│   ├── common_protocol.hpp
+│   ├── protocol_base.hpp
+│   └── uart_protocol.hpp
+└── protocol
 ```
 - common_protocol : 通用设备，用于存放主体代码
     - common.hpp : 通用及工具代码
     - common_protocol.hpp : 对外统一接口
     - protocol_base.hpp : 不同协议的基类接口
     - [实现] can_protocol.hpp : CAN协议传输的功能实现，从protocol_base派生
+    - [实现] uart_protocol.hpp : UART协议传输的功能实现，从protocol_base派生
 - common_parser : 通用解析器，用于存放协议解析代码
-    - [实现] can_parser.hpp : CAN协议传输的解析实现
+    - parser_base.hpp : 不同解析器的基类接口
+    - [实现] can_parser.hpp : CAN协议传输的解析实现，从parser_base派生
+    - [实现] uart_parser.hpp : UART协议传输的解析实现，从parser_base派生
+- protocol : 用于存放各协议具体基本实现
 
 描述文件存放目录见 : [`cyberdog_bridges/README.md`](TBD)规定
 
@@ -41,6 +49,8 @@ include
     XNAME(var), \
     cyberdog::common::ProtocolData(sizeof((var)), static_cast<void *>(&(var))))
 
+namespace cyberdog
+{
 namespace common
 {
 template<typename TDataClass>
@@ -63,6 +73,7 @@ public:
   StateCollector & GetErrorCollector();
 };  // class Protocol
 }  // namespace common
+}  // namespace cyberdog
 ```
 
 > 构造函数，通过外部描述文件创建实例对象
