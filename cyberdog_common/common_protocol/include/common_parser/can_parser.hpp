@@ -243,7 +243,7 @@ public:
   }
 
   bool Encode(
-    const PROTOCOL_DATA_MAP & protocol_data_map,
+    PROTOCOL_DATA_MAP & protocol_data_map,
     std::shared_ptr<CanDev> can_op)
   {
     bool error_flag = false;

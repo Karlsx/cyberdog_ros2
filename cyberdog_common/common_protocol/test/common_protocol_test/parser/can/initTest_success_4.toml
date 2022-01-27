@@ -1,0 +1,28 @@
+# Testing Array with content
+protocol = "can"
+name = "initTest_success_4"
+
+can_interface = "can0"
+extended_frame = false
+canfd_enable = false
+timeout_us = 1234567
+
+[[array]]
+description = ""
+package_num = 8
+can_id = ["0x1A0+", "0x1A7+"]
+array_name = "u8_array"
+content = [
+    {name = "bool_var", type = "bool", min = 0.0, max = 1.0, bits = 1},
+    {name = "double_var", type = "double", min = 0.0, max = 10.0, bits = 21},
+    {name = "float_var", type = "float", min = -10.0, max = 10.0, bits = 22},
+    {name = "i8_var", type = "i8", min = 0.0, max = 40.0, bits = 8},
+    {name = "i16_var", type = "i16", min = 0.0, max = 200.0, bits = 14},
+    {name = "i32_var", type = "i32", min = -50.0, max = 50.0, bits = 30},
+    {name = "i64_var", type = "i64", min = -100.0, max = 100.0, bits = 36},
+    {name = "u8_var", type = "u8", min = 0.0, max = 75.0, bits = 3},
+    {name = "u16_var", type = "u16", min = 0.0, max = 100.0, bits = 15},
+    {name = "u32_var", type = "u32", min = 0.0, max = 500.0, bits = 32},
+    {name = "u64_var", type = "u64", min = 0.0, max = 500.0, bits = 32}
+]
+

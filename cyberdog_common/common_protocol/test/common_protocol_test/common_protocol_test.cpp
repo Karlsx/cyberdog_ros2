@@ -264,19 +264,17 @@ TEST(CommonProtocolTest_CAN, initTest_success_0) {
   testing_full_var test_var;
   test_var.init_type_1();
   *dv->GetData() = test_var;
-  ASSERT_EQ(callback_data, nullptr);
+  callback_data = nullptr;
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
-  callback_data = nullptr;
 
   test_var.init_type_2();
   *dv->GetData() = test_var;
-  ASSERT_EQ(callback_data, nullptr);
+  callback_data = nullptr;
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
-  callback_data = nullptr;
 
   clct.PrintfAllStateStr();
   ASSERT_EQ(CLCT(), 0U);
@@ -297,19 +295,17 @@ TEST(CommonProtocolTest_CAN, initTest_success_1) {
   testing_full_var test_var;
   test_var.init_type_1();
   *dv->GetData() = test_var;
-  ASSERT_EQ(callback_data, nullptr);
+  callback_data = nullptr;
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
-  callback_data = nullptr;
 
   test_var.init_type_2();
   *dv->GetData() = test_var;
-  ASSERT_EQ(callback_data, nullptr);
+  callback_data = nullptr;
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
-  callback_data = nullptr;
 
   clct.PrintfAllStateStr();
   ASSERT_EQ(CLCT(), 0U);
@@ -408,6 +404,131 @@ TEST(CommonProtocolTest_CAN, initTest_success_3) {
     ASSERT_EQ(callback_data_testing_var->u8_array[a], 0xC1U + a);
   }
   callback_data_testing_var = nullptr;
+}
+
+class DataClass4
+{
+public:
+  bool bool_var;
+  double double_var;
+  float float_var;
+  int8_t i8_var;
+  int16_t i16_var;
+  int32_t i32_var;
+  int64_t i64_var;
+  uint8_t u8_var;
+  uint16_t u16_var;
+  uint32_t u32_var;
+  uint64_t u64_var;
+  uint8_t u8_array[64];
+
+  void operator=(const DataClass4 & data)
+  {
+    bool_var = data.bool_var;
+    double_var = data.double_var;
+    float_var = data.float_var;
+    i8_var = data.i8_var;
+    i16_var = data.i16_var;
+    i32_var = data.i32_var;
+    i64_var = data.i64_var;
+    u8_var = data.u8_var;
+    u16_var = data.u16_var;
+    u32_var = data.u32_var;
+    u64_var = data.u64_var;
+  }
+
+  bool EQ(const DataClass4 & data)
+  {
+    if (data.bool_var == bool_var &&
+      std::abs(data.double_var - double_var) <= 1 &&
+      std::abs(data.float_var - float_var) <= 1 &&
+      std::abs(data.i8_var - i8_var) <= 1 &&
+      std::abs(data.i16_var - i16_var) <= 1 &&
+      std::abs(data.i32_var - i32_var) <= 1 &&
+      std::abs(data.i64_var - i64_var) <= 1 &&
+      std::abs(data.u8_var - u8_var) <= 1 &&
+      std::abs(data.u16_var - u16_var) <= 1 &&
+      (((data.u32_var > u32_var) ? (data.u32_var - u32_var) : (u32_var - data.u32_var)) <= 1) &&
+      (((data.u64_var > u64_var) ? (data.u64_var - u64_var) : (u64_var - data.u64_var)) <= 1))
+    {
+      return true;
+    } else {return false;}
+  }
+
+  void init_type_1()
+  {
+    bool_var = true;
+    double_var = 3.51;
+    float_var = -4.56;
+    i8_var = 32;
+    i16_var = 123;
+    i32_var = 23;
+    i64_var = -78;
+    u8_var = 75;
+    u16_var = 0;
+    u32_var = 450;
+    u64_var = 300;
+  }
+
+  void init_type_2()
+  {
+    bool_var = false;
+    double_var = 2.51;
+    float_var = 3.75;
+    i8_var = 25;
+    i16_var = 12;
+    i32_var = -25;
+    i64_var = 20;
+    u8_var = 0;
+    u16_var = 12;
+    u32_var = 210;
+    u64_var = 265;
+  }
+};
+
+std::shared_ptr<DataClass4> DC4_callback_data = nullptr;
+void DC4_callback(std::shared_ptr<DataClass4> data)
+{
+  DC4_callback_data = data;
+}
+
+// Testing Array with content
+TEST(CommonProtocolTest_CAN, initTest_success_4) {
+  std::string path = std::string(PASER_PATH) + "/can/initTest_success_4.toml";
+  auto dv = std::make_shared<EVM::Protocol<DataClass4>>(path);
+  dv->LINK_VAR(dv->GetData()->bool_var);
+  dv->LINK_VAR(dv->GetData()->double_var);
+  dv->LINK_VAR(dv->GetData()->float_var);
+  dv->LINK_VAR(dv->GetData()->i8_var);
+  dv->LINK_VAR(dv->GetData()->i16_var);
+  dv->LINK_VAR(dv->GetData()->i32_var);
+  dv->LINK_VAR(dv->GetData()->i64_var);
+  dv->LINK_VAR(dv->GetData()->u8_var);
+  dv->LINK_VAR(dv->GetData()->u16_var);
+  dv->LINK_VAR(dv->GetData()->u32_var);
+  dv->LINK_VAR(dv->GetData()->u64_var);
+  dv->LINK_VAR(dv->GetData()->u8_array);
+  dv->SetDataCallback(DC4_callback);
+
+  auto & clct = dv->GetErrorCollector();
+
+  DataClass4 test_var;
+  test_var.init_type_1();
+  *dv->GetData() = test_var;
+  DC4_callback_data = nullptr;
+  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_NE(DC4_callback_data, nullptr);
+  ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+
+  test_var.init_type_2();
+  *dv->GetData() = test_var;
+  DC4_callback_data = nullptr;
+  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_NE(DC4_callback_data, nullptr);
+  ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+
+  clct.PrintfAllStateStr();
+  ASSERT_EQ(CLCT(), 0U);
 }
 
 // Testing missing toml file

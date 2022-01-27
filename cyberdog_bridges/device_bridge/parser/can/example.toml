@@ -43,10 +43,21 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8              (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX32>[2] / array<string-HEX32>[package_num])
-# array_name = "array_name_1"  (string)
-# [optional] description = ""  (string)
+# package_num = 8                (size_t)
+# can_id = ["0x200", "0x207"]    (array<string-HEX32>[2] / array<string-HEX32>[package_num])
+# array_name = ""                (string)
+# [optional] content = [
+#    {
+#        name = "",              (string)
+#        type = "float",         (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#        min = -1.0,             (float)
+#        max = 1.0,              (float)
+#        bits = 9                (1 ~ 64)
+#    },
+# ]                              (array<map<content>>[])
+# [optional] description = ""    (string)
+#
+# NOTICE: Need at lease one of "array_name" or "content"
 
 [[array]]
 package_num = 8
@@ -58,6 +69,10 @@ description = "this is example named example_array_1"
 package_num = 4
 can_id = ["0x200", "0x201", "0x202", "0x203"]
 array_name = "example_array_2"
+content = [
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12},
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12}
+]
 description = "this is example named example_array_2"
 
 # -- cmd -- #

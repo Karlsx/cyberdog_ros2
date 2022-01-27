@@ -32,6 +32,30 @@ namespace common
 #define T_FRAMEID uint32_t
 #define T_FRAMESIZE size_t
 
+class SingleContent
+{
+public:
+  explicit SingleContent(
+    std::string name,
+    std::string type,
+    float min,
+    float max,
+    uint8_t bits)
+  {
+    this->name = name;
+    this->type = type;
+    this->min = min;
+    this->max = max;
+    this->bits = bits;
+  }
+
+  std::string name;
+  std::string type;
+  float min;
+  float max;
+  uint8_t bits;
+};
+
 class FrameRuleBase
 {
 public:
@@ -124,7 +148,7 @@ public:
     }
     parser_type = toml_at<std::string>(table, "parser_type", "auto");
     auto tmp_parser_param = toml_at<std::vector<uint8_t>>(table, "parser_param", error_clct);
-    size_t param_size = tmp_parser_param.size();
+    auto param_size = tmp_parser_param.size();
     if (parser_type == "auto") {
       if (param_size == 3) {
         parser_type = "bit";
@@ -245,6 +269,50 @@ public:
         C_RED "[%s_PARSER][ERROR][%s] array_name error, not support empty string\n" C_END,
         parser_name.c_str(), out_name.c_str());
     }
+    auto tmp_content = toml_at<std::vector<toml::table>>(table, "content");
+    if (tmp_content.size() != 0) {
+      content = std::make_shared<std::vector<SingleContent>>();
+      for (auto & single_table : tmp_content) {
+        auto name = toml_at<std::string>(single_table, "name", error_clct);
+        if (name == "") {
+          error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_CONTENT_VALUE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s][array:%s] content \"name\" error, "
+            "not support empty string\n" C_END,
+            parser_name.c_str(), out_name.c_str(), array_name.c_str());
+        }
+        auto type = toml_at<std::string>(single_table, "type", error_clct);
+        if (type == "u8_array" || common_type.find(type) == common_type.end()) {
+          error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_CONTENT_VALUE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] var_type error, "
+            "type:\"%s\" not support; only support:[",
+            parser_name.c_str(), out_name.c_str(), array_name.c_str(), name.c_str(), type.c_str());
+          for (auto & t : common_type) {
+            if (t != "u8_array") {printf("%s, ", t.c_str());}
+          }
+          printf("]\n" C_END);
+        }
+        auto min = toml_at<float>(single_table, "min", error_clct);
+        auto max = toml_at<float>(single_table, "max", error_clct);
+        if (min >= max) {
+          error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_CONTENT_VALUE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] \"min\" or \"max\" "
+            "value error\n" C_END,
+            parser_name.c_str(), out_name.c_str(), array_name.c_str(), name.c_str());
+        }
+        auto bits = toml_at<uint8_t>(single_table, "bits", error_clct);
+        if (bits > 64) {
+          error_clct->LogState(ErrorCode::RULEARRAY_ILLEGAL_CONTENT_VALUE);
+          printf(
+            C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] \"bits\" error, "
+            "0 < bits <= 64\n" C_END,
+            parser_name.c_str(), out_name.c_str(), array_name.c_str(), name.c_str());
+        }
+        content->push_back(SingleContent(name, type, min, max, bits));
+      }
+    }
   }
 
   CHILD_STATE_CLCT error_clct;
@@ -256,6 +324,11 @@ public:
   std::string array_name;
   std::map<T_FRAMEID, int> frame_map;
   std::shared_ptr<std::vector<T_FRAMEID>> frame_send_vec = nullptr;
+  std::shared_ptr<std::vector<SingleContent>> content = nullptr;
+  // for EncodeArray
+  uint start_bits;
+  uint start_index;
+  const ProtocolData * single_protocol_data;
 
   inline int get_offset(T_FRAMEID frame_id)
   {
@@ -405,6 +478,11 @@ protected:
     if (rule.error_clct->GetSelfStateTimesNum() == 0) {
       // check error and warning
       if (IsSameVarError(rule.array_name)) {return;}
+      if (rule.content != nullptr) {
+        for (auto & a : *rule.content) {
+          if (IsSameVarError(a.name)) {return;}
+        }
+      }
       CheckDataConflict(rule);  // report error but get pass
       rule.all_max_len = 0;
       for (auto & a : rule.frame_map) {
@@ -614,6 +692,72 @@ protected:
     return true;
   }
 
+  // Encode & Decode//////////////////////////////////////////////////////////////////////////////
+  void OperateArrayContent(
+    ArrayRuleBase & rule,
+    PROTOCOL_DATA_MAP & protocol_data_map,
+    bool & error_flag,
+    bool encode)
+  {
+    rule.start_bits = 0;
+    uint64_t tmp = 0x0;
+    uint8_t * protocol_array_base =
+      static_cast<uint8_t *>(protocol_data_map.at(rule.array_name).addr);
+    auto array_len = protocol_data_map.at(rule.array_name).len;
+    for (auto & single_content : *rule.content) {
+      std::string content_name = single_content.name;
+      if (protocol_data_map.find(content_name) == protocol_data_map.end()) {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::RUNTIME_NOLINK_ERROR);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s][array:%s] Can't find array-content-name:\"%s\" in "
+          "protocol_data_map\n\tYou may need use LINK_VAR() to link data class/struct "
+          "in protocol_data_map\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(), content_name.c_str());
+        return;
+      }
+      auto & single_protocol_data = protocol_data_map.at(content_name);
+      uint max_bits = array_len * 8;
+      if (rule.start_bits + single_content.bits > max_bits) {
+        error_flag = true;
+        error_clct_->LogState(ErrorCode::RUNTIME_SIZEOVERFLOW);
+        printf(
+          C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] Size overflow, "
+          "max content bits:%d\n" C_END,
+          parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(),
+          content_name.c_str(), max_bits);
+        return;
+      }
+      // |76543210|   Example:
+      // |===-----|   = : left                  3
+      // |--------|   - : single_content.bits  15
+      // |--______|   _ : 8 - effect_left       6
+      uint index = rule.start_bits / 8;
+      uint8_t left = rule.start_bits % 8;
+      uint8_t effect_left = (left + single_content.bits) % 8;
+      uint8_t effect_num = (left + single_content.bits) / 8 + ((effect_left != 0) ? 1 : 0);
+      if (encode) {
+        tmp = PutContent(single_protocol_data.addr, single_content);
+        if (effect_left != 0) {tmp <<= (8 - effect_left);}
+        for (uint a = 0; a < effect_num; a++) {
+          protocol_array_base[index + effect_num - 1 - a] |= (tmp & 0xFFUL);
+          tmp >>= 8;
+        }
+      } else {
+        tmp = 0;
+        for (uint a = 0; a < effect_num; a++) {
+          tmp <<= 8;
+          tmp |= protocol_array_base[index + a];
+          if (a == 0) {tmp &= ((1UL << (8 - left)) - 1);}
+        }
+        if (effect_left != 0) {tmp >>= (8 - effect_left);}
+        GetContent(tmp, single_protocol_data.addr, single_content);
+        single_protocol_data.loaded = true;
+      }
+      rule.start_bits += single_content.bits;
+    }
+  }
+
   // Encode //////////////////////////////////////////////////////////////////////////////////////
   template<typename Target>
   inline void PutVar(
@@ -734,6 +878,42 @@ protected:
     }
   }
 
+  template<typename T>
+  uint64_t TtoUINT64(void * addr, const SingleContent & single_content)
+  {
+    return static_cast<uint64_t>((*static_cast<T *>(addr) - single_content.min) *
+           (static_cast<float>((1UL << single_content.bits) - 1)) /
+           (single_content.max - single_content.min));
+  }
+
+  uint64_t PutContent(void * addr, const SingleContent & single_content)
+  {
+    if (single_content.type == "bool") {
+      return *static_cast<bool *>(addr) != 0;
+    } else if (single_content.type == "double") {
+      return TtoUINT64<double>(addr, single_content);
+    } else if (single_content.type == "float") {
+      return TtoUINT64<float>(addr, single_content);
+    } else if (single_content.type == "u64") {
+      return TtoUINT64<uint64_t>(addr, single_content);
+    } else if (single_content.type == "u32") {
+      return TtoUINT64<uint32_t>(addr, single_content);
+    } else if (single_content.type == "u16") {
+      return TtoUINT64<uint16_t>(addr, single_content);
+    } else if (single_content.type == "u8") {
+      return TtoUINT64<uint8_t>(addr, single_content);
+    } else if (single_content.type == "i64") {
+      return TtoUINT64<int64_t>(addr, single_content);
+    } else if (single_content.type == "i32") {
+      return TtoUINT64<int32_t>(addr, single_content);
+    } else if (single_content.type == "i16") {
+      return TtoUINT64<int16_t>(addr, single_content);
+    } else if (single_content.type == "i8") {
+      return TtoUINT64<int8_t>(addr, single_content);
+    }
+    return 0;
+  }
+
   bool EncodeCMD(
     const std::string & CMD,
     canid_t & frame_id,
@@ -789,17 +969,14 @@ protected:
   }
 
   bool EncodeArray(
-    const PROTOCOL_DATA_MAP & protocol_data_map,
+    PROTOCOL_DATA_MAP & protocol_data_map,
     ArrayRuleBase & rule,
     uint8_t * raw_data,
     int frame_index,
     bool & error_flag)
   {
-    static uint start_index;
-    static const ProtocolData * single_protocol_data;
-
     if (frame_index == 0) {
-      start_index = 0;
+      rule.start_index = 0;
       std::string array_name = rule.array_name;
       if (protocol_data_map.find(array_name) == protocol_data_map.end()) {
         error_flag = true;
@@ -810,8 +987,8 @@ protected:
           parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
         return false;
       }
-      single_protocol_data = &protocol_data_map.at(array_name);
-      if (rule.all_max_len != single_protocol_data->len) {
+      rule.single_protocol_data = &protocol_data_map.at(array_name);
+      if (rule.all_max_len != rule.single_protocol_data->len) {
         error_flag = true;
         error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
         printf(
@@ -820,6 +997,10 @@ protected:
           parser_name_.c_str(), out_name_.c_str(), array_name.c_str());
         return false;
       }
+      if (rule.content != nullptr) {
+        std::memset(rule.single_protocol_data->addr, 0, rule.single_protocol_data->len);
+        OperateArrayContent(rule, protocol_data_map, error_flag, true);
+      }
     } else if (frame_index >= static_cast<int>(rule.frame_map.size())) {return false;}
 
     if (rule.frame_send_vec == nullptr) {
@@ -827,12 +1008,12 @@ protected:
       for (auto & a : rule.frame_map) {(*rule.frame_send_vec)[a.second] = a.first;}
     }
     int len = GetFrameDataLen((*rule.frame_send_vec)[frame_index]);
-    uint8_t * protocol_array_base = static_cast<uint8_t *>(single_protocol_data->addr);
-    protocol_array_base += start_index;
+    uint8_t * protocol_array_base = static_cast<uint8_t *>(rule.single_protocol_data->addr);
+    protocol_array_base += rule.start_index;
     for (int a = 0; a < len; a++, protocol_array_base++) {
       raw_data[a] = *protocol_array_base;
     }
-    start_index += len;
+    rule.start_index += len;
     return true;
   }
 
@@ -962,6 +1143,41 @@ protected:
     }
   }
 
+  template<typename T>
+  void UINT64toT(uint64_t n_bits, void * addr, const SingleContent & single_content)
+  {
+    *static_cast<T *>(addr) = static_cast<T>(static_cast<float>(n_bits) *
+      (single_content.max - single_content.min) /
+      (static_cast<float>((1UL << single_content.bits) - 1)) + single_content.min);
+  }
+
+  void GetContent(uint64_t n_bits, void * addr, const SingleContent & single_content)
+  {
+    if (single_content.type == "bool") {
+      *static_cast<bool *>(addr) = (n_bits != 0);
+    } else if (single_content.type == "double") {
+      UINT64toT<double>(n_bits, addr, single_content);
+    } else if (single_content.type == "float") {
+      UINT64toT<float>(n_bits, addr, single_content);
+    } else if (single_content.type == "u64") {
+      UINT64toT<uint64_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "u32") {
+      UINT64toT<uint32_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "u16") {
+      UINT64toT<uint16_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "u8") {
+      UINT64toT<uint8_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "i64") {
+      UINT64toT<int64_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "i32") {
+      UINT64toT<int32_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "i16") {
+      UINT64toT<int16_t>(n_bits, addr, single_content);
+    } else if (single_content.type == "i8") {
+      UINT64toT<int8_t>(n_bits, addr, single_content);
+    }
+  }
+
   void DecodeVar(
     PROTOCOL_DATA_MAP & protocol_data_map,
     T_FRAMEID frame_id,
@@ -994,9 +1210,9 @@ protected:
       auto offset = rule.get_offset(frame_id);
       if (offset == -1) {continue;}
       if (protocol_data_map.find(rule.array_name) != protocol_data_map.end()) {
-        ProtocolData * var = &protocol_data_map.at(rule.array_name);
-        size_t len = GetFrameDataLen(frame_id);
-        if (var->len < rule.all_max_len) {
+        ProtocolData * single_protocol_data = &protocol_data_map.at(rule.array_name);
+        auto len = GetFrameDataLen(frame_id);
+        if (single_protocol_data->len < rule.all_max_len) {
           error_flag = true;
           error_clct_->LogState(ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE);
           printf(
@@ -1006,17 +1222,21 @@ protected:
         }
         if (offset == rule.array_expect) {
           // main decode begin
-          uint8_t * data_area = reinterpret_cast<uint8_t *>(var->addr);
+          uint8_t * data_area = reinterpret_cast<uint8_t *>(single_protocol_data->addr);
           data_area += rule.waiting_index;
           for (int a = 0; a < static_cast<int>(len); a++) {
             data_area[a] = raw_data[a];
           }
           rule.array_expect++;
           rule.waiting_index += len;
+          // finish recv all frame
           if (offset == static_cast<int>(rule.package_num) - 1) {
-            var->loaded = true;
+            single_protocol_data->loaded = true;
             rule.array_expect = 0;
             rule.waiting_index = 0;
+            if (rule.content != nullptr) {
+              OperateArrayContent(rule, protocol_data_map, error_flag, false);
+            }
           }
         } else {
           T_FRAMEID expect_id = 0x0;
