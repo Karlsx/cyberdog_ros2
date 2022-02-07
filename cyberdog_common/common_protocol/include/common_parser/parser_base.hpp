@@ -692,7 +692,7 @@ protected:
     return true;
   }
 
-  // Encode & Decode//////////////////////////////////////////////////////////////////////////////
+  // Encode & Decode /////////////////////////////////////////////////////////////////////////////
   void OperateArrayContent(
     ArrayRuleBase & rule,
     PROTOCOL_DATA_MAP & protocol_data_map,
@@ -722,10 +722,10 @@ protected:
         error_flag = true;
         error_clct_->LogState(ErrorCode::RUNTIME_SIZEOVERFLOW);
         printf(
-          C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] Size overflow, "
+          C_RED "[%s_PARSER][ERROR][%s][array:%s][content:%s] %s size overflow, "
           "max content bits:%d\n" C_END,
           parser_name_.c_str(), out_name_.c_str(), rule.array_name.c_str(),
-          content_name.c_str(), max_bits);
+          content_name.c_str(), encode ? "Encode" : "Decode", max_bits);
         return;
       }
       // |76543210|   Example:

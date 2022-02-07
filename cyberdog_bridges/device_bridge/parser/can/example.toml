@@ -1,8 +1,8 @@
 # -- common params -- #
-# protocol = "can"          (string)
-# name = "can_device_name"  (string)
+# protocol = "can"            (string)
+# name = "can_protocol_name"  (string)
 protocol = "can"
-name = "can_device_1"
+name = "can_protocol_1"
 
 # -- can params -- #
 # can_interface = "can0"             (string)

@@ -239,10 +239,21 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8              (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX32>[2] / array<string-HEX32>[package_num])
-# array_name = "array_name_1"  (string)
-# [optional] description = ""  (string)
+# package_num = 8                (size_t)
+# can_id = ["0x200", "0x207"]    (array<string-HEX32>[2] / array<string-HEX32>[package_num])
+# array_name = ""                (string)
+# [optional] content = [
+#    {
+#        name = "",              (string)
+#        type = "float",         (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#        min = -1.0,             (float)
+#        max = 1.0,              (float)
+#        bits = 9                (1 ~ 64)
+#    },
+# ]                              (array<map<content>>[])
+# [optional] description = ""    (string)
+#
+# NOTICE: Need at lease one of "array_name" or "content"
 
 [[array]]
 package_num = 8
@@ -254,6 +265,10 @@ description = "this is example named example_array_1"
 package_num = 4
 can_id = ["0x200", "0x201", "0x202", "0x203"]
 array_name = "example_array_2"
+content = [
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12},
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12}
+]
 description = "this is example named example_array_2"
 
 # -- cmd -- #
@@ -316,6 +331,18 @@ description = "this is example named example_cmd_1"
             - 所有数据将依照所指定的CAN_ID顺序，以数组`index`顺序装填，即通过CAN_ID查询在`can_id`中的`index`，按`array[index * 8]`为基准进行装填
             - 详细解析见下方示例表格(`例6`)
     - `array_name` : 需要解析到的数组名称(即在代码中使用`LINK_VAR(var)`链接的数组名称)
+    - [可选] `content` : 数组合包后解析内容(与`var`形式解析相似，但通过`bits`位数据映射到`min`到`max`，即(`0 ~ 2 ^ bits - 1` 映射到 `min ~ max`)以便压缩数据)(`例9`)
+        - **!!注意!!** : 该方式存在系统性精度损失及误差
+        - `name` : 需要解析到的变量名称(即在代码中使用`LINK_VAR(var)`链接的数组名称)
+        - `type` : 
+            - 需要解析的变量类型(即在代码中使用`LINK_VAR(var)`链接的变量类型)
+            - 支持解析格式 : `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool`
+        - `min` : 映射范围最小值，满足`min < max`
+        - `max` : 映射范围最大值，满足`min < max`
+        - `bits` : 需要用于映射的数据位数，满足`1 <= bits <= 64`
+        - 原始计算式 :
+            - Decode : [parser_base.hpp](./include/common_parser/parser_base.hpp):1147
+            - Encode : [parser_base.hpp](./include/common_parser/parser_base.hpp):882
     - [可选] `description` : 注释及使用描述
 - `cmd` : CAN协议下发指令解析规则(`例7`)
     - `cmd_name` : 指令名称(即在代码中使用`Operate()`函数进行操作的指令)
@@ -426,8 +453,8 @@ description = "this is example named example_cmd_1"
 > 例6:
 > 
 > | 解析规则 | 0x200 | 0x201 | 0x202 |
-> | :----: | :----: | :----: | :----: |
-> | package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | :----: | ----: | ----: | ----: |
+> | package_num = 3             | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x200", "0x202"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_6      | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                             | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |
@@ -496,3 +523,45 @@ description = "this is example named example_cmd_1"
 > ```
 >
 > 该示例展示了以参数`[1, 3]`，即按照`can_data`数组`index`为`1`到`3`的顺序解析到`example_8`数组中
+
+> 例9:
+>
+> | 解析规则 | 0x200 | 0x201 | 0x202 |
+> | :----: | ----: | ----: | ----: |
+> | package_num = 3             | can_data[0] = 0xA1 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | can_id = ["0x200", "0x202"] | can_data[1] = 0xA2 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
+> | array_name = example_6      | can_data[2] = 0xA3 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
+> |                             | ... = 0xA4         | ... = 0xB3         | ... = 0xC3         |
+> |                             | ... = 0xA5         | ... = 0xB4         | ... = 0xC4         |
+> |                             | ... = 0xA6         | ... = 0xB5         | ... = 0xC5         |
+> |                             | ... = 0xA7         | ... = 0xB6         | ... = 0xC6         |
+> |                             | ... = 0xA8         | ... = 0xB7         | ... = 0xC7         |
+> 
+> content :
+> | name | type | min | max | bits |
+> | :----: | :----: | :----: | :----: | :----: |
+> | var_name_1 | u8 | -10 | 10 | 1 |
+> | var_name_2 | u8 | -20 | 20 | 1 |
+> | var_name_3 | float | -200 | 200 | 16 |
+>
+> 解析后等效代码为:
+> ```cpp
+> uint8 example_9[24] = {
+>   0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8,
+>   0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7,
+>   0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7
+> };
+> // example_9[0]=0xA1=0b1011'0001 : [var_name_3[5-0], var_name_2[0], var_name_1[0]]
+> // example_9[1]=0xA2=0b1011'0010 : [var_name_3[13-6]]
+> // example_9[1]=0xA3=0b1011'0011 : [other[5-0], var_name_3[15-14]]
+> // var_name_1 = 0b1 * (10 - -10)/((1<<bits)-1) + -10 = 10;
+> // var_name_2 = 0b0 * (20 - -20)/((1<<bits)-1) + -20 = -20;
+> // var_name_2 = (0b1011'00 | 0b1011'0010'0000'00 | 0b11'0000'0000'0000'00) * (200 - -200)/((1<<bits)-1) + -200
+> //            = 1110110010101100 * 400 / 65535 - 200
+> //            = 169.805447471
+> var_name_1 = 10;
+> var_name_2 = -20;
+> var_name_3 = 169.805447471
+> ```
+>
+> 该示例展示了以参数`["0x200", "0x202"]`，即按照从`0x200`到`0x202`的顺序依次解析并装填入数组`example_9`，再以上表`content`规则分别解析到变量`var_name_1`、`var_name_2`和`var_name_3`

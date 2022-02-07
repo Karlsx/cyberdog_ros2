@@ -239,10 +239,21 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8              (size_t)
-# can_id = ["0x200", "0x207"]  (array<string-HEX32>[2] / array<string-HEX32>[package_num])
-# array_name = "array_name_1"  (string)
-# [optional] description = ""  (string)
+# package_num = 8                (size_t)
+# can_id = ["0x200", "0x207"]    (array<string-HEX32>[2] / array<string-HEX32>[package_num])
+# array_name = ""                (string)
+# [optional] content = [
+#    {
+#        name = "",              (string)
+#        type = "float",         (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#        min = -1.0,             (float)
+#        max = 1.0,              (float)
+#        bits = 9                (1 ~ 64)
+#    },
+# ]                              (array<map<content>>[])
+# [optional] description = ""    (string)
+#
+# NOTICE: Need at lease one of "array_name" or "content"
 
 [[array]]
 package_num = 8
@@ -254,6 +265,10 @@ description = "this is example named example_array_1"
 package_num = 4
 can_id = ["0x200", "0x201", "0x202", "0x203"]
 array_name = "example_array_2"
+content = [
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12},
+    {name = "", type = "", min = 0.0, max = 0.0, bits = 12}
+]
 description = "this is example named example_array_2"
 
 # -- cmd -- #
@@ -316,6 +331,18 @@ Parsing:
             - All data will be filled in the order of the array `index` according to the specified CAN_ID order, that is, the `index` in `can_id` can be queried by CAN_ID, and the filling will be carried out based on `array[index * 8]`
             - See the example table below for detailed analysis (`Example 6`)
     - `array_name`: the name of the array to be parsed (that is, the name of the array linked with `LINK_VAR(var)` in the code)
+    - [Optional] `content` : parse content after array packing (similar to `var` form parsing, but map `min` to `max` through `bits` bit data, i.e. (`0 ~ 2 ^ bits - 1` maps to `min ~ max`) in order to compress the data) (`Example 9`)
+         - **!!Note!!** : This method has systematic accuracy loss and errors
+         - `name` : the name of the variable to resolve to (i.e. the name of the array linked with `LINK_VAR(var)` in the code)
+         - `type` :
+             - The type of variable that needs to be resolved (i.e. the type of variable linked in the code using `LINK_VAR(var)`)
+             - Support parsing formats: `float` / `double` / `i64` / `i32` / `i16` / `i8` / `u64` / `u32` / `u16` / `u8` / `bool`
+         - `min` : the minimum value of the mapping range, satisfying `min < max`
+         - `max` : the maximum value of the mapping range, satisfying `min < max`
+         - `bits` : The number of data bits required for mapping, satisfying `1 <= bits <= 64`
+         - Original calculation formula:
+            - Decode : [parser_base.hpp](./include/common_parser/parser_base.hpp):1147
+            - Encode : [parser_base.hpp](./include/common_parser/parser_base.hpp):882
     - [Optional] `description`: Notes and usage description
 - `cmd`: CAN protocol issued command parsing rules (`Example 7`)
     - `cmd_name`: command name (i.e. the command used in the code to operate with the `Operate()` function)
@@ -426,8 +453,8 @@ Example set:
 > Example 6:
 > 
 > | Analysis Rules | 0x200 | 0x201 | 0x202 |
-> | :----: | :----: | :----: | :----: |
-> | package_num = 3         | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | :----: | ----: | ----: | ----: |
+> | package_num = 3             | can_data[0] = 0xA0 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
 > | can_id = ["0x200", "0x202"] | can_data[1] = 0xA1 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
 > | array_name = example_6      | can_data[2] = 0xA2 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
 > |                             | ... = 0xA3         | ... = 0xB3         | ... = 0xC3         |
@@ -496,3 +523,45 @@ Example set:
 > ```
 >
 > This example shows that the parameter `[1, 3]` is parsed into the `example_8` array in the order of `can_data` array `index` from `1` to `3`
+
+> Example 9:
+>
+> | Parsing Rules | 0x200 | 0x201 | 0x202 |
+> | :----: | ----: | ----: | ----: |
+> | package_num = 3 | can_data[0] = 0xA1 | can_data[0] = 0xB0 | can_data[0] = 0xC0 |
+> | can_id = ["0x200", "0x202"] | can_data[1] = 0xA2 | can_data[1] = 0xB1 | can_data[1] = 0xC1 |
+> | array_name = example_6 | can_data[2] = 0xA3 | can_data[2] = 0xB2 | can_data[2] = 0xC2 |
+> | | ... = 0xA4 | ... = 0xB3 | ... = 0xC3 |
+> | | ... = 0xA5 | ... = 0xB4 | ... = 0xC4 |
+> | | ... = 0xA6 | ... = 0xB5 | ... = 0xC5 |
+> | | ... = 0xA7 | ... = 0xB6 | ... = 0xC6 |
+> | | ... = 0xA8 | ... = 0xB7 | ... = 0xC7 |
+>
+> content :
+> | name | type | min | max | bits |
+> | :----: | :----: | :----: | :----: | :----: |
+> | var_name_1 | u8 | -10 | 10 | 1 |
+> | var_name_2 | u8 | -20 | 20 | 1 |
+> | var_name_3 | float | -200 | 200 | 16 |
+>
+> The equivalent code after parsing is:
+> ````cpp
+> uint8 example_9[24] = {
+> 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8,
+> 0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7,
+> 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7
+> };
+> // example_9[0]=0xA1=0b1011'0001 : [var_name_3[5-0], var_name_2[0], var_name_1[0]]
+> // example_9[1]=0xA2=0b1011'0010 : [var_name_3[13-6]]
+> // example_9[1]=0xA3=0b1011'0011 : [other[5-0], var_name_3[15-14]]
+> // var_name_1 = 0b1 * (10 - -10)/((1<<bits)-1) + -10 = 10;
+> // var_name_2 = 0b0 * (20 - -20)/((1<<bits)-1) + -20 = -20;
+> // var_name_2 = (0b1011'00 | 0b1011'0010'0000'00 | 0b11'0000'0000'0000'00) * (200 - -200)/((1<<bits)-1) + -200
+> // = 1110110010101100 * 400 / 65535 - 200
+> // = 169.805447471
+> var_name_1 = 10;
+> var_name_2 = -20;
+> var_name_3 = 169.805447471
+> ````
+>
+> This example shows that the parameters `["0x200", "0x202"]` are parsed and loaded into the array `example_9` in the order from `0x200` to `0x202`, and then the above table `content` rules respectively resolves to variables `var_name_1`, `var_name_2` and `var_name_3`

@@ -1,0 +1,52 @@
+# Testing array content error
+protocol = "can"
+name = "initTest_failed_4_1"
+
+can_interface = "can0"
+extended_frame = false
+canfd_enable = false
+timeout_us = 1234567
+
+[[array]]
+description = ""
+package_num = 2
+can_id = ["0x0300", "0x0301"]
+array_name = "u8_array_1"
+content = [
+    {name = "bool_var", type = "bool", min = 0.0, max = 0.0, bits = 0},
+    {name = "bool_var", type = "bool", min = 0.0, max = 1.0, bits = 1},
+    {name = "double_var", type = "double", min = 0.0, max = 10.0, bits = 65},
+    {name = "float_var", type = "float", min = -10.0, max = 10.0, bits = -1},
+    {name = "i8_var", type = "i8", min = 40.0, max = 40.0, bits = 8},
+    {name = "i16_var", type = "i16", min = 0.0, max = -200.0, bits = 14},
+    {name = "u8_array", type = "u8_array", min = 0.0, max = 200.0, bits = 14},
+    {name = "", type = "i16", min = 0.0, max = 200.0, bits = 14}
+]
+
+[[array]]
+description = ""
+package_num = 8
+can_id = ["0x0300", "0x0307"]
+array_name = "u8_array"
+content = [
+    {name = "bool_var", type = "bool", min = 0.0, max = 1.0, bits = 64},
+    {name = "double_var", type = "double", min = 0.0, max = 10.0, bits = 64},
+    {name = "float_var", type = "float", min = -10.0, max = 10.0, bits = 64},
+    {name = "i8_var", type = "i8", min = 0.0, max = 40.0, bits = 64},
+    {name = "i16_var", type = "i16", min = 0.0, max = 200.0, bits = 64},
+    {name = "i32_var", type = "i32", min = -50.0, max = 50.0, bits = 64},
+    {name = "i64_var", type = "i64", min = -100.0, max = 100.0, bits = 64},
+    {name = "u8_var", type = "u8", min = 0.0, max = 75.0, bits = 64},
+    {name = "u16_var", type = "u16", min = 0.0, max = 100.0, bits = 64},
+    {name = "u32_var", type = "u32", min = 0.0, max = 500.0, bits = 64},
+    {name = "u64_var", type = "u64", min = 0.0, max = 500.0, bits = 64}
+]
+
+[[array]]
+description = ""
+package_num = 1
+can_id = ["0x0400"]
+array_name = "u8_array_1"
+content = [
+    {name = "test", type = "bool", min = 0.0, max = 1.0, bits = 64}
+]

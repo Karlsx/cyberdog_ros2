@@ -264,17 +264,19 @@ TEST(CommonProtocolTest_CAN, initTest_success_0) {
   testing_full_var test_var;
   test_var.init_type_1();
   *dv->GetData() = test_var;
-  callback_data = nullptr;
+  ASSERT_EQ(callback_data, nullptr);
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
+  callback_data = nullptr;
 
   test_var.init_type_2();
   *dv->GetData() = test_var;
-  callback_data = nullptr;
+  ASSERT_EQ(callback_data, nullptr);
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
+  callback_data = nullptr;
 
   clct.PrintfAllStateStr();
   ASSERT_EQ(CLCT(), 0U);
@@ -421,6 +423,7 @@ public:
   uint32_t u32_var;
   uint64_t u64_var;
   uint8_t u8_array[64];
+  uint8_t u8_array_1[8];
 
   void operator=(const DataClass4 & data)
   {
@@ -515,17 +518,19 @@ TEST(CommonProtocolTest_CAN, initTest_success_4) {
   DataClass4 test_var;
   test_var.init_type_1();
   *dv->GetData() = test_var;
-  DC4_callback_data = nullptr;
+  ASSERT_EQ(DC4_callback_data, nullptr);
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(DC4_callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+  DC4_callback_data = nullptr;
 
   test_var.init_type_2();
   *dv->GetData() = test_var;
-  DC4_callback_data = nullptr;
+  ASSERT_EQ(DC4_callback_data, nullptr);
   ASSERT_TRUE(dv->SendSelfData());
   ASSERT_NE(DC4_callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+  DC4_callback_data = nullptr;
 
   clct.PrintfAllStateStr();
   ASSERT_EQ(CLCT(), 0U);
@@ -609,6 +614,39 @@ TEST(CommonProtocolTest_CAN, initTest_failed_4) {
   ASSERT_GE(CLCT(EVM::ErrorCode::RULE_SAMENAME_ERROR), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULEARRAY_SAMECANID_ERROR), 1U);
   ASSERT_GE(CLCT(EVM::ErrorCode::RULEARRAY_ILLEGAL_PARSERPARAM_VALUE), 8U);
+}
+
+// Testing array content error
+TEST(CommonProtocolTest_CAN, initTest_failed_4_1) {
+  std::string path = std::string(PASER_PATH) + "/can/initTest_failed_4_1.toml";
+  auto dv = std::make_shared<EVM::Protocol<DataClass4>>(path);
+  dv->LINK_VAR(dv->GetData()->bool_var);
+  dv->LINK_VAR(dv->GetData()->double_var);
+  dv->LINK_VAR(dv->GetData()->float_var);
+  dv->LINK_VAR(dv->GetData()->i8_var);
+  dv->LINK_VAR(dv->GetData()->i16_var);
+  dv->LINK_VAR(dv->GetData()->i32_var);
+  dv->LINK_VAR(dv->GetData()->i64_var);
+  dv->LINK_VAR(dv->GetData()->u8_var);
+  dv->LINK_VAR(dv->GetData()->u16_var);
+  dv->LINK_VAR(dv->GetData()->u32_var);
+  dv->LINK_VAR(dv->GetData()->u64_var);
+  dv->LINK_VAR(dv->GetData()->u8_array);
+  dv->LINK_VAR(dv->GetData()->u8_array_1);
+  dv->SetDataCallback(DC4_callback);
+
+  auto & clct = dv->GetErrorCollector();
+
+  ASSERT_EQ(DC4_callback_data, nullptr);
+  ASSERT_FALSE(dv->SendSelfData());
+  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZEOVERFLOW), 2U);
+  DC4_callback_data = nullptr;
+
+  clct.PrintfAllStateStr();
+  ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RULEARRAY_ILLEGAL_CONTENT_VALUE), 7U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZEOVERFLOW), 2U);
+  ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_NOLINK_ERROR), 1U);
 }
 
 // Testing CMD error

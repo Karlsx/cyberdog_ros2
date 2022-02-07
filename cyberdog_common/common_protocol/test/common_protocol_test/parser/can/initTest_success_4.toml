@@ -25,4 +25,3 @@ content = [
     {name = "u32_var", type = "u32", min = 0.0, max = 500.0, bits = 32},
     {name = "u64_var", type = "u64", min = 0.0, max = 500.0, bits = 32}
 ]
-
