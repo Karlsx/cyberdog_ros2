@@ -1,0 +1,18 @@
+// generated from common_protocol/tools/idl.py
+// with input from {$TOML_NAME}
+// generated code does not contain a copyright notice
+
+#include "{$HEADER_NAME}"
+{$CANID_OFFSET}
+#ifdef {$DEF_NAME}_ENABLE_RX
+struct {$NAME} rx_data;
+{$ARRAY_ORDER_CHECK}
+bool {$NAME}_get_raw_can_data(uint32_t can_id, uint8_t * can_data)
+{
+{$SWITCH_OR_IF}
+}
+#endif  // {$DEF_NAME}_ENABLE_RX
+
+#ifdef {$DEF_NAME}_ENABLE_TX
+
+#endif  // {$DEF_NAME}_ENABLE_TX

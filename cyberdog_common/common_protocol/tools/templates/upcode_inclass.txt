@@ -19,12 +19,13 @@ public:
     
   }
 
-  void {$NAME}_init(const std::string & protocol_toml_path, bool for_send, int canid_offset)
+  void {$NAME}_init(
+    const std::string & protocol_toml_path,
+    bool for_send = false,
+    int canid_offset = 0)
   {
-    ptc = std::make_shared<cyberdog::common::Protocol<{$NAME}>>(
-      protocol_toml_path, for_send, canid_offset);
+    ptc = std::make_shared<cyberdog::common::Protocol<{$NAME}>>(protocol_toml_path, for_send, canid_offset);
 {$LINK_VARS}
-    ptc->SetDataCallback(std::bind(
-      &OUT_CLASS::{$NAME}_callback, this, std::placeholders::_1));
+    ptc->SetDataCallback(std::bind(&OUT_CLASS::{$NAME}_callback, this, std::placeholders::_1));
   }
 };

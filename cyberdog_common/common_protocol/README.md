@@ -239,21 +239,20 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8                (size_t)
-# can_id = ["0x200", "0x207"]    (array<string-HEX32>[2] / array<string-HEX32>[package_num])
-# array_name = ""                (string)
+# package_num = 8                     (size_t)
+# can_id = ["0x200", "0x207"]         (array<string-HEX32>[2] / array<string-HEX32>[package_num])
+# array_name = ""                     (string)
 # [optional] content = [
 #    {
-#        name = "",              (string)
-#        type = "float",         (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
-#        min = -1.0,             (float)
-#        max = 1.0,              (float)
-#        bits = 9                (1 ~ 64)
+#        name = "",                   (string)
+#        type = "float",              (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#        min = -1.0,                  (float)
+#        max = 1.0,                   (float)
+#        bits = 9,                    (1 ~ 64)
+#        [optional] description = ""  (string)
 #    },
-# ]                              (array<map<content>>[])
-# [optional] description = ""    (string)
-#
-# NOTICE: Need at lease one of "array_name" or "content"
+# ]                                   (array<map<content>>[])
+# [optional] description = ""         (string)
 
 [[array]]
 package_num = 8
@@ -340,6 +339,7 @@ description = "this is example named example_cmd_1"
         - `min` : 映射范围最小值，满足`min < max`
         - `max` : 映射范围最大值，满足`min < max`
         - `bits` : 需要用于映射的数据位数，满足`1 <= bits <= 64`
+        - [可选] `description` : 注释及使用描述
         - 原始计算式 :
             - Decode : [parser_base.hpp](./include/common_parser/parser_base.hpp):1147
             - Encode : [parser_base.hpp](./include/common_parser/parser_base.hpp):882
@@ -399,11 +399,11 @@ description = "this is example named example_cmd_1"
 > 
 > 解析后等效代码为:
 > ```cpp
-> uint32 tmp_2 = 0x12345678;
+> int32 tmp_2 = 0x12345678;
 > double example_2 = (double)(tmp_2) * 0.0001;
 > ```
 >
-> 该示例展示了以参数`[0, 3]`，即`can_data`数组`index`为`0`、`1`、`2`、`3`共4个`u8`先<u>以高位优先按二进制</u>的解析形式合并为`u32`，再以<u>小数点精度缩放</u>的解析形式，缩放小数点得到`double`类型变量`example_3`的过程
+> 该示例展示了以参数`[0, 3]`，即`can_data`数组`index`为`0`、`1`、`2`、`3`共4个`u8`先<u>以高位优先按二进制</u>的解析形式合并为`i32`，再以<u>小数点精度缩放</u>的解析形式，缩放小数点得到`double`类型变量`example_3`的过程
 > ***
 > __注__:在`var_type`为`float`或`double`中，当`parser_param`规定的解析`u8`数量不等于`flaot`和`double`的`size`且为`size`的偶数分之一(1/2, 1/4)，将使用<u>以高位优先按二进制</u>合并，再使用<u>小数点精度缩放</u>的解析形式:
 > - 即 `float`的`size`为4个`u8`，当`parser_param`规定的解析`u8`数量为2时

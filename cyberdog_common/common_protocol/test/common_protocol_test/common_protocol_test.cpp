@@ -180,7 +180,7 @@ void callback(std::shared_ptr<testing_full_var> data)
   callback_data = data;
 }
 
-std::shared_ptr<EVM::Protocol<testing_full_var>> CreatDevice(
+std::shared_ptr<EVM::Protocol<testing_full_var>> CreatProtocol(
   std::string path,
   bool make_error = false,
   bool for_send = false)
@@ -252,28 +252,28 @@ TEST(CommonProtocolTest_CAN, StateCollector) {
 // Testing normal usage STD_CAN with std_frame
 TEST(CommonProtocolTest_CAN, initTest_success_0) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_0.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
-  ASSERT_FALSE(dv->IsRxTimeout());
-  ASSERT_FALSE(dv->IsTxTimeout());
-  ASSERT_FALSE(dv->IsRxError());
-  ASSERT_TRUE(dv->Operate("start", std::vector<uint8_t>{0x1F, 0x5F}));
-  ASSERT_TRUE(dv->Operate("close"));
+  ASSERT_FALSE(ptc->IsRxTimeout());
+  ASSERT_FALSE(ptc->IsTxTimeout());
+  ASSERT_FALSE(ptc->IsRxError());
+  ASSERT_TRUE(ptc->Operate("start", std::vector<uint8_t>{0x1F, 0x5F}));
+  ASSERT_TRUE(ptc->Operate("close"));
 
   testing_full_var test_var;
   test_var.init_type_1();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   ASSERT_EQ(callback_data, nullptr);
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
   callback_data = nullptr;
 
   test_var.init_type_2();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   ASSERT_EQ(callback_data, nullptr);
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
   callback_data = nullptr;
@@ -285,27 +285,27 @@ TEST(CommonProtocolTest_CAN, initTest_success_0) {
 // Testing normal usage FD_CAN with extended_frame
 TEST(CommonProtocolTest_CAN, initTest_success_1) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_1.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
-  ASSERT_FALSE(dv->IsRxTimeout());
-  ASSERT_FALSE(dv->IsTxTimeout());
-  ASSERT_FALSE(dv->IsRxError());
-  ASSERT_TRUE(dv->Operate("start", std::vector<uint8_t>{0x1F, 0x5F}));
-  ASSERT_TRUE(dv->Operate("close"));
+  ASSERT_FALSE(ptc->IsRxTimeout());
+  ASSERT_FALSE(ptc->IsTxTimeout());
+  ASSERT_FALSE(ptc->IsRxError());
+  ASSERT_TRUE(ptc->Operate("start", std::vector<uint8_t>{0x1F, 0x5F}));
+  ASSERT_TRUE(ptc->Operate("close"));
 
   testing_full_var test_var;
   test_var.init_type_1();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   callback_data = nullptr;
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
 
   test_var.init_type_2();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   callback_data = nullptr;
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(callback_data, nullptr);
   ASSERT_TRUE(test_var.EQ(*callback_data, 0.01));
 
@@ -329,17 +329,17 @@ void testing_var_callback(std::shared_ptr<testing_var> data)
 // Testing Operate data get
 TEST(CommonProtocolTest_CAN, initTest_success_2) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_2.toml";
-  auto dv = EVM::Protocol<testing_var>(path);
-  dv.LINK_VAR(dv.GetData()->u64_var);
-  dv.LINK_VAR(dv.GetData()->u8_array);
-  dv.SetDataCallback(testing_var_callback);
+  auto ptc = EVM::Protocol<testing_var>(path);
+  ptc.LINK_VAR(ptc.GetData()->u64_var);
+  ptc.LINK_VAR(ptc.GetData()->u8_array);
+  ptc.SetDataCallback(testing_var_callback);
 
   ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
+  ptc.Operate(
     "CMD_0", std::vector<uint8_t> {
     0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8
   });
-  dv.Operate(
+  ptc.Operate(
     "CMD_1", std::vector<uint8_t> {
     0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
   });
@@ -351,11 +351,11 @@ TEST(CommonProtocolTest_CAN, initTest_success_2) {
   callback_data_testing_var = nullptr;
 
   ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
+  ptc.Operate(
     "CMD_0", std::vector<uint8_t> {
     0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
   });
-  dv.Operate(
+  ptc.Operate(
     "CMD_2", std::vector<uint8_t> {
     0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
   });
@@ -370,17 +370,17 @@ TEST(CommonProtocolTest_CAN, initTest_success_2) {
 // Testing Operate data get with canid offset
 TEST(CommonProtocolTest_CAN, initTest_success_3) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_3.toml";
-  auto dv = EVM::Protocol<testing_var>(path, false, 6);
-  dv.LINK_VAR(dv.GetData()->u64_var);
-  dv.LINK_VAR(dv.GetData()->u8_array);
-  dv.SetDataCallback(testing_var_callback);
+  auto ptc = EVM::Protocol<testing_var>(path, false, 6);
+  ptc.LINK_VAR(ptc.GetData()->u64_var);
+  ptc.LINK_VAR(ptc.GetData()->u8_array);
+  ptc.SetDataCallback(testing_var_callback);
 
   ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
+  ptc.Operate(
     "CMD_0", std::vector<uint8_t> {
     0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8
   });
-  dv.Operate(
+  ptc.Operate(
     "CMD_1", std::vector<uint8_t> {
     0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
   });
@@ -392,11 +392,11 @@ TEST(CommonProtocolTest_CAN, initTest_success_3) {
   callback_data_testing_var = nullptr;
 
   ASSERT_EQ(callback_data_testing_var, nullptr);
-  dv.Operate(
+  ptc.Operate(
     "CMD_0", std::vector<uint8_t> {
     0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8
   });
-  dv.Operate(
+  ptc.Operate(
     "CMD_2", std::vector<uint8_t> {
     0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8
   });
@@ -498,38 +498,38 @@ void DC4_callback(std::shared_ptr<DataClass4> data)
 // Testing Array with content
 TEST(CommonProtocolTest_CAN, initTest_success_4) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_4.toml";
-  auto dv = std::make_shared<EVM::Protocol<DataClass4>>(path);
-  dv->LINK_VAR(dv->GetData()->bool_var);
-  dv->LINK_VAR(dv->GetData()->double_var);
-  dv->LINK_VAR(dv->GetData()->float_var);
-  dv->LINK_VAR(dv->GetData()->i8_var);
-  dv->LINK_VAR(dv->GetData()->i16_var);
-  dv->LINK_VAR(dv->GetData()->i32_var);
-  dv->LINK_VAR(dv->GetData()->i64_var);
-  dv->LINK_VAR(dv->GetData()->u8_var);
-  dv->LINK_VAR(dv->GetData()->u16_var);
-  dv->LINK_VAR(dv->GetData()->u32_var);
-  dv->LINK_VAR(dv->GetData()->u64_var);
-  dv->LINK_VAR(dv->GetData()->u8_array);
-  dv->SetDataCallback(DC4_callback);
+  auto ptc = std::make_shared<EVM::Protocol<DataClass4>>(path);
+  ptc->LINK_VAR(ptc->GetData()->bool_var);
+  ptc->LINK_VAR(ptc->GetData()->double_var);
+  ptc->LINK_VAR(ptc->GetData()->float_var);
+  ptc->LINK_VAR(ptc->GetData()->i8_var);
+  ptc->LINK_VAR(ptc->GetData()->i16_var);
+  ptc->LINK_VAR(ptc->GetData()->i32_var);
+  ptc->LINK_VAR(ptc->GetData()->i64_var);
+  ptc->LINK_VAR(ptc->GetData()->u8_var);
+  ptc->LINK_VAR(ptc->GetData()->u16_var);
+  ptc->LINK_VAR(ptc->GetData()->u32_var);
+  ptc->LINK_VAR(ptc->GetData()->u64_var);
+  ptc->LINK_VAR(ptc->GetData()->u8_array);
+  ptc->SetDataCallback(DC4_callback);
 
-  auto & clct = dv->GetErrorCollector();
+  auto & clct = ptc->GetErrorCollector();
 
   DataClass4 test_var;
   test_var.init_type_1();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   ASSERT_EQ(DC4_callback_data, nullptr);
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(DC4_callback_data, nullptr);
-  ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+  ASSERT_TRUE(test_var.EQ(*ptc->GetData()));
   DC4_callback_data = nullptr;
 
   test_var.init_type_2();
-  *dv->GetData() = test_var;
+  *ptc->GetData() = test_var;
   ASSERT_EQ(DC4_callback_data, nullptr);
-  ASSERT_TRUE(dv->SendSelfData());
+  ASSERT_TRUE(ptc->SendSelfData());
   ASSERT_NE(DC4_callback_data, nullptr);
-  ASSERT_TRUE(test_var.EQ(*dv->GetData()));
+  ASSERT_TRUE(test_var.EQ(*ptc->GetData()));
   DC4_callback_data = nullptr;
 
   clct.PrintfAllStateStr();
@@ -539,8 +539,8 @@ TEST(CommonProtocolTest_CAN, initTest_success_4) {
 // Testing missing toml file
 TEST(CommonProtocolTest_CAN, initTest_failed_0) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_0.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
   clct.PrintfAllStateStr();
   ASSERT_GT(CLCT(EVM::ErrorCode::INIT_ERROR), 0U);
@@ -549,14 +549,14 @@ TEST(CommonProtocolTest_CAN, initTest_failed_0) {
 // Testing error protocol & missing common params
 TEST(CommonProtocolTest_CAN, initTest_failed_1) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_1.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
-  ASSERT_FALSE(dv->Operate("test"));
-  ASSERT_FALSE(dv->SendSelfData());
-  ASSERT_TRUE(dv->IsRxTimeout());
-  ASSERT_TRUE(dv->IsTxTimeout());
-  ASSERT_TRUE(dv->IsRxError());
+  ASSERT_FALSE(ptc->Operate("test"));
+  ASSERT_FALSE(ptc->SendSelfData());
+  ASSERT_TRUE(ptc->IsRxTimeout());
+  ASSERT_TRUE(ptc->IsTxTimeout());
+  ASSERT_TRUE(ptc->IsRxError());
 
   clct.PrintfAllStateStr();
   ASSERT_GT(CLCT(EVM::ErrorCode::ILLEGAL_PROTOCOL), 0U);
@@ -565,8 +565,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_1) {
 // Testing missing key
 TEST(CommonProtocolTest_CAN, initTest_failed_2) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_2.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
@@ -584,8 +584,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_2) {
 // Testing var error
 TEST(CommonProtocolTest_CAN, initTest_failed_3) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_3.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
@@ -604,8 +604,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_3) {
 // Testing array error
 TEST(CommonProtocolTest_CAN, initTest_failed_4) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_4.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
@@ -619,26 +619,26 @@ TEST(CommonProtocolTest_CAN, initTest_failed_4) {
 // Testing array content error
 TEST(CommonProtocolTest_CAN, initTest_failed_4_1) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_4_1.toml";
-  auto dv = std::make_shared<EVM::Protocol<DataClass4>>(path);
-  dv->LINK_VAR(dv->GetData()->bool_var);
-  dv->LINK_VAR(dv->GetData()->double_var);
-  dv->LINK_VAR(dv->GetData()->float_var);
-  dv->LINK_VAR(dv->GetData()->i8_var);
-  dv->LINK_VAR(dv->GetData()->i16_var);
-  dv->LINK_VAR(dv->GetData()->i32_var);
-  dv->LINK_VAR(dv->GetData()->i64_var);
-  dv->LINK_VAR(dv->GetData()->u8_var);
-  dv->LINK_VAR(dv->GetData()->u16_var);
-  dv->LINK_VAR(dv->GetData()->u32_var);
-  dv->LINK_VAR(dv->GetData()->u64_var);
-  dv->LINK_VAR(dv->GetData()->u8_array);
-  dv->LINK_VAR(dv->GetData()->u8_array_1);
-  dv->SetDataCallback(DC4_callback);
+  auto ptc = std::make_shared<EVM::Protocol<DataClass4>>(path);
+  ptc->LINK_VAR(ptc->GetData()->bool_var);
+  ptc->LINK_VAR(ptc->GetData()->double_var);
+  ptc->LINK_VAR(ptc->GetData()->float_var);
+  ptc->LINK_VAR(ptc->GetData()->i8_var);
+  ptc->LINK_VAR(ptc->GetData()->i16_var);
+  ptc->LINK_VAR(ptc->GetData()->i32_var);
+  ptc->LINK_VAR(ptc->GetData()->i64_var);
+  ptc->LINK_VAR(ptc->GetData()->u8_var);
+  ptc->LINK_VAR(ptc->GetData()->u16_var);
+  ptc->LINK_VAR(ptc->GetData()->u32_var);
+  ptc->LINK_VAR(ptc->GetData()->u64_var);
+  ptc->LINK_VAR(ptc->GetData()->u8_array);
+  ptc->LINK_VAR(ptc->GetData()->u8_array_1);
+  ptc->SetDataCallback(DC4_callback);
 
-  auto & clct = dv->GetErrorCollector();
+  auto & clct = ptc->GetErrorCollector();
 
   ASSERT_EQ(DC4_callback_data, nullptr);
-  ASSERT_FALSE(dv->SendSelfData());
+  ASSERT_FALSE(ptc->SendSelfData());
   ASSERT_GE(CLCT(EVM::ErrorCode::RUNTIME_SIZEOVERFLOW), 2U);
   DC4_callback_data = nullptr;
 
@@ -652,8 +652,8 @@ TEST(CommonProtocolTest_CAN, initTest_failed_4_1) {
 // Testing CMD error
 TEST(CommonProtocolTest_CAN, initTest_failed_5) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_5.toml";
-  auto dv = CreatDevice(path);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path);
+  auto & clct = ptc->GetErrorCollector();
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
@@ -675,20 +675,20 @@ public:
 // Testing src code error
 TEST(CommonProtocolTest_CAN, initTest_failed_6) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_failed_6.toml";
-  auto dv = CreatDevice(path, true);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path, true);
+  auto & clct = ptc->GetErrorCollector();
   int test = 0;
   test_1 test_1_;
 
-  dv->LINK_VAR(dv->GetData()->double_32bit);
-  dv->LINK_VAR(test);
-  dv->LINK_VAR((test_1_).flag.test);
-  ASSERT_TRUE(dv->Operate("CMD_0"));
-  ASSERT_TRUE(dv->Operate("CMD_1"));
-  ASSERT_FALSE(dv->Operate("CMD_1", std::vector<uint8_t>(8)));
-  ASSERT_FALSE(dv->Operate("CMD_2"));
-  ASSERT_TRUE(dv->Operate("CMD_3"));
-  ASSERT_FALSE(dv->SendSelfData());
+  ptc->LINK_VAR(ptc->GetData()->double_32bit);
+  ptc->LINK_VAR(test);
+  ptc->LINK_VAR((test_1_).flag.test);
+  ASSERT_TRUE(ptc->Operate("CMD_0"));
+  ASSERT_TRUE(ptc->Operate("CMD_1"));
+  ASSERT_FALSE(ptc->Operate("CMD_1", std::vector<uint8_t>(8)));
+  ASSERT_FALSE(ptc->Operate("CMD_2"));
+  ASSERT_TRUE(ptc->Operate("CMD_3"));
+  ASSERT_FALSE(ptc->SendSelfData());
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::INIT_ERROR), 1U);
@@ -709,11 +709,11 @@ TEST(CommonProtocolTest_CAN, initTest_failed_6) {
 // Testing normal usage STD_CAN with std_frame send error
 TEST(CommonProtocolTest_CAN, initTest_failed_7) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_0.toml";
-  auto dv = CreatDevice(path, false, true);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path, false, true);
+  auto & clct = ptc->GetErrorCollector();
 
-  ASSERT_FALSE(dv->SendSelfData());
-  ASSERT_FALSE(dv->Operate("start"));
+  ASSERT_FALSE(ptc->SendSelfData());
+  ASSERT_FALSE(ptc->Operate("start"));
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::CAN_STD_SEND_ERROR), 35U);
@@ -722,15 +722,16 @@ TEST(CommonProtocolTest_CAN, initTest_failed_7) {
 // Testing normal usage FD_CAN with extended_frame send error
 TEST(CommonProtocolTest_CAN, initTest_failed_8) {
   std::string path = std::string(PASER_PATH) + "/can/initTest_success_1.toml";
-  auto dv = CreatDevice(path, false, true);
-  auto & clct = dv->GetErrorCollector();
+  auto ptc = CreatProtocol(path, false, true);
+  auto & clct = ptc->GetErrorCollector();
 
-  ASSERT_FALSE(dv->SendSelfData());
-  ASSERT_FALSE(dv->Operate("start"));
+  ASSERT_FALSE(ptc->SendSelfData());
+  ASSERT_FALSE(ptc->Operate("start"));
 
   clct.PrintfAllStateStr();
   ASSERT_GE(CLCT(EVM::ErrorCode::CAN_FD_SEND_ERROR), 15U);
 
+  // for uart test
   path = std::string(PASER_PATH) + "/uart/initTest_success.toml";
   auto p = std::make_shared<EVM::Protocol<testing_full_var>>(path, false);
 }

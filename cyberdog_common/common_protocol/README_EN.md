@@ -239,21 +239,20 @@ description = "this is example named example_var_2"
 
 # -- data_array -- #
 # [[array]]
-# package_num = 8                (size_t)
-# can_id = ["0x200", "0x207"]    (array<string-HEX32>[2] / array<string-HEX32>[package_num])
-# array_name = ""                (string)
+# package_num = 8                     (size_t)
+# can_id = ["0x200", "0x207"]         (array<string-HEX32>[2] / array<string-HEX32>[package_num])
+# array_name = ""                     (string)
 # [optional] content = [
 #    {
-#        name = "",              (string)
-#        type = "float",         (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
-#        min = -1.0,             (float)
-#        max = 1.0,              (float)
-#        bits = 9                (1 ~ 64)
+#        name = "",                   (string)
+#        type = "float",              (float / double / i64 / i32 / i16 / i8 / u64 / u32 / u16 / u8 / bool)
+#        min = -1.0,                  (float)
+#        max = 1.0,                   (float)
+#        bits = 9,                    (1 ~ 64)
+#        [optional] description = ""  (string)
 #    },
-# ]                              (array<map<content>>[])
-# [optional] description = ""    (string)
-#
-# NOTICE: Need at lease one of "array_name" or "content"
+# ]                                   (array<map<content>>[])
+# [optional] description = ""         (string)
 
 [[array]]
 package_num = 8
@@ -340,6 +339,7 @@ Parsing:
          - `min` : the minimum value of the mapping range, satisfying `min < max`
          - `max` : the maximum value of the mapping range, satisfying `min < max`
          - `bits` : The number of data bits required for mapping, satisfying `1 <= bits <= 64`
+         - [Optional] `description`: Notes and usage description
          - Original calculation formula:
             - Decode : [parser_base.hpp](./include/common_parser/parser_base.hpp):1147
             - Encode : [parser_base.hpp](./include/common_parser/parser_base.hpp):882
@@ -399,11 +399,11 @@ Example set:
 > 
 > The equivalent code after parsing is:
 > ```cpp
-> uint32 tmp_2 = 0x12345678;
+> int32 tmp_2 = 0x12345678;
 > double example_2 = (double)(tmp_2) * 0.0001;
 > ```
 >
-> This example shows using the parameter `[0, 3]`, that is, the `can_data` array `index` is `0`, `1`, `2`, and `3`, a total of 4 `u8` first <u> The high order first is merged into `u32` according to the analytical form of binary</u>, and then the process of scaling the decimal point to obtain the `double` type variable `example_3` in the analytical form of <u>decimal point precision scaling</u>
+> This example shows using the parameter `[0, 3]`, that is, the `can_data` array `index` is `0`, `1`, `2`, and `3`, a total of 4 `u8` first <u> The high order first is merged into `i32` according to the analytical form of binary</u>, and then the process of scaling the decimal point to obtain the `double` type variable `example_3` in the analytical form of <u>decimal point precision scaling</u>
 > ***
 > __Note__: When `var_type` is `float` or `double`, when the number of parsing `u8` specified by `parser_param` is not equal to `size` of `flaot` and `double` and is `size` The even-numbered one (1/2, 1/4) of the, will use the <u>high-order priority to combine according to the binary</u>, and then use the analytical form of <u>decimal point precision scaling</u>:
 >-That is, the `size` of `float` is 4 `u8`, when the number of parsing `u8` specified by `parser_param` is 2

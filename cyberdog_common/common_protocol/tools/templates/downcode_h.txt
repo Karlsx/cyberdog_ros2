@@ -1,0 +1,43 @@
+// generated from common_protocol/tools/idl.py
+// with input from {$TOML_NAME}
+// generated code does not contain a copyright notice
+
+#ifndef __{$DEF_NAME}_H__
+#define __{$DEF_NAME}_H__
+
+#define {$DEF_NAME}_ENABLE_RX
+#define {$DEF_NAME}_ENABLE_TX
+
+#include "common_protocol.h"
+
+struct {$NAME}
+{
+{$VARS}
+};
+
+#ifdef {$DEF_NAME}_ENABLE_RX
+/// @note Need to be called in CAN_Recive func
+/// @brief Get single can package and try to decode to struct
+/// @param can_id Standard or extended can_id
+/// @param can_data The data array can_frame carried
+/// @param len The length of data array
+/// @return Get the can_id described in toml and return true, others return false
+bool {$NAME}_get_raw_can_data(uint32_t can_id, uint8_t * can_data);
+
+/// @note Need define in other .c file
+/// @brief When success recive all can package in toml description, this func will be called
+///        and you can get data with param
+/// @param data Recived data from can
+void {$NAME}_callback(struct {$NAME} * data);
+
+/// @note Need define in other .c file
+/// @brief When recive unexpect array, this func will be called
+/// @param get Array package can_id get from recive
+void {$NAME}_array_package_unorder_error(uint32_t get);
+#endif  // {$DEF_NAME}_ENABLE_RX
+
+#ifdef {$DEF_NAME}_ENABLE_TX
+void {$NAME}_send(struct {$NAME} * tx_data);
+#endif  // {$DEF_NAME}_ENABLE_TX
+
+#endif  // __{$DEF_NAME}_H__
