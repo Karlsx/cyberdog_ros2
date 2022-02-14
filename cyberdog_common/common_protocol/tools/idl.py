@@ -83,13 +83,13 @@ def get_vars_linkvars(toml_dict: dict, inclass: bool) -> tuple:
             var_type = single_var['var_type']
             var_name = single_var['var_name']
             if (var_type == 'u8_array'):
-                can_len = int(single_var['parser_param'][1]) - \
+                array_len = int(single_var['parser_param'][1]) - \
                     int(single_var['parser_param'][0]) + 1
                 vars += "%s%s %s[%d];%s\n" % (
                     space(inclass),
                     get_type(var_type),
                     var_name,
-                    can_len,
+                    array_len,
                     get_description(single_var))
             else:
                 vars += "%s%s %s;%s\n" % (
@@ -136,6 +136,14 @@ def front_space(dynamic: bool) -> str:
     return '    ' if dynamic else '    '
 
 
+def get_buff_type(tmp_buff_dict: dict, buff_type: str):
+    if (buff_type in tmp_buff_dict):
+        return ''
+    else:
+        tmp_buff_dict.update({buff_type: True})
+        return buff_type
+
+
 def get_0bmask(h: int, l: int, len: int = 8) -> str:
     out = '0b'
     for i in range(len - 1, -1, -1):
@@ -171,20 +179,22 @@ BLOCK_SWITCH = """  switch (can_id)
     return false;
   }
   return true;"""
-BLOCK_IF_ELSE = """  {$CASES} {
-    return false;
-  }"""
-BLOCK_CASE_STR = """  case {$CAN_ID}:
-{$SINGLE_OPERATE}    break;
+SINGLE_CASE_STR = """  case {$CAN_ID}:
+{$ORDER_CHECK}{$SINGLE_OPERATE}    break;
 """
-BLOCK_IF_ELSE_STR = """if (can_id == {$CAN_ID}) {
-{$SINGLE_OPERATE}    return true;
-  } else """
-BLOCK_ORDER_CHECK = """    if (%s_order_check != %s) {
-      %s_array_package_unorder_error(%s);
-      %s_order_check = 0;
-      %s;
-    }
+
+BLOCK_IF_ELSE = """  {$CASES} {return false;}
+  return true;"""
+SINGLE_IF_ELSE_STR = """if (can_id == {$CAN_ID}) {
+{$ORDER_CHECK}{$SINGLE_OPERATE}  } else """
+
+BLOCK_ORDER_CHECKER = """
+// package recive order check
+ORDER_CHECK_TYPE {$NAME}_OC = 0;  // OC: order_checker
+bool {$NAME}_OCEF = 0;  // OCEF: order_check_error_flag
+"""
+BLOCK_ORDER_CHECK = """    if (!is_package_inorder\
+(&{$NAME}_OC, %d, &{$NAME}_OCEF, %s)) {%s}
 """
 
 
@@ -194,10 +204,15 @@ def down_code(
         canid_offset: int = 0,
         name: str = None):
     dynamic_canid_offset = False
-    dynamic_canid_offset = True
+    # dynamic_canid_offset = True
 
     idl_path = os.path.abspath(os.path.dirname(__file__))
     toml_dict = toml.load(toml_path)
+    extended_frame = True if (
+        'extended_frame' in toml_dict and toml_dict['extended_frame']) else False
+    canfd_enable = True if (
+        'canfd_enable' in toml_dict and toml_dict['canfd_enable']) else False
+    can_len = get_canlen(toml_dict)
     h_str = readall(idl_path + '/templates/downcode_h.txt')
     c_str = readall(idl_path + '/templates/downcode_c.txt')
     vars, link_vars = get_vars_linkvars(toml_dict, False)
@@ -214,11 +229,8 @@ def down_code(
 
     c_str = c_str.replace('{$TOML_NAME}', toml_name)
     c_str = c_str.replace('{$HEADER_NAME}', name + ".h")
-    c_str = c_str.replace('{$NAME}', name)
-    c_str = c_str.replace('{$DEF_NAME}', name.upper())
-    c_str = c_str.replace('{$CANID_OFFSET}',
-                          ('\nuint32_t canid_offset = %d;\n' % canid_offset)
-                          if dynamic_canid_offset else '')
+
+    # RX CODE
     cases_dict = {}
     if('var' in toml_dict):
         for single_var in toml_dict['var']:
@@ -235,19 +247,19 @@ def down_code(
                 u8_num = param[1] - param[0] + 1
                 eq_tmp_str = ''
                 move_type = get_move_type(u8_num)
-                for i in range(u8_num, 1, -1):
-                    eq_tmp_str += " | ((%s)can_data[%d] << %d)" % (
-                        move_type, i - 1, (i - 1) * 8)
-                if(eq_tmp_str != ''):
-                    eq_tmp_str = eq_tmp_str[3:] + \
-                        ' | ((%s)can_data[0])' % move_type
-                else:
-                    eq_tmp_str = 'can_data[0]'
+                for i in range(param[0], param[1] + 1):
+                    move_byte_num = (u8_num - (i - param[0]) - 1) * 8
+                    if(move_byte_num != 0):
+                        eq_tmp_str += '((%s)can_data[%d] << %d) | ' % (
+                            move_type, i, move_byte_num)
+                    else:
+                        eq_tmp_str += '(%s)can_data[%d] | ' % (
+                            move_type, i)
+                eq_tmp_str = eq_tmp_str[:-3]
 
                 if(single_var['var_type'] == 'u8_array'):
                     tmp_str = 'memcpy(&rx_data.%s[0], &can_data[%d], %d);\n' % (
                         var_name, param[0], u8_num)
-                    print(tmp_str)
                 elif(var_type != move_type):
                     if(var_type == 'float'):
                         if(u8_num == 4):
@@ -285,7 +297,6 @@ def down_code(
                     tmp_str = tmp_str.replace('(', '').replace(')', '')
             cases_dict[canid] += ('    ' + tmp_str)
     if('array' in toml_dict):
-        array_order_check_str = ''
         for single_array in toml_dict['array']:
             package_num = single_array['package_num']
             canid_list = single_array['can_id']
@@ -304,30 +315,13 @@ def down_code(
                 for i in range(len(canid_list)):
                     canid_list[i] = get_canid(
                         canid_list[i], dynamic_canid_offset, canid_offset)
-            can_len = get_canlen(toml_dict)
-            if(package_num == 1):
-                pass
-            elif(package_num <= 255):
-                array_order_check_str += 'uint8_t %s_order_check = 0;\n' % array_name
-            else:
-                raise "Error, array package num only support <= 255, you need extend type"
             for canid in canid_list:
                 tmp_str = ''
                 if(canid not in cases_dict):
                     cases_dict.update({canid: ''})
                 package_index = canid_list.index(canid)
-                if(package_num != 1):
-                    tmp_str += BLOCK_ORDER_CHECK % (
-                        array_name, str(
-                            package_index), array_name, canid, array_name,
-                        'return true' if dynamic_canid_offset else 'break')
-                    if(package_index != package_num - 1):
-                        tmp_str += '    %s_order_check++;\n' % array_name
-                    else:
-                        tmp_str += '    %s_order_check = 0;\n' % array_name
                 tmp_str += '    memcpy(&rx_data.%s[%d], &can_data[0], %d);\n' % (
-                    array_name, package_index * 8, can_len)
-
+                    array_name, package_index * can_len, can_len)
                 cases_dict[canid] += (tmp_str)
             if('content' in single_array and len(single_array['content']) != 0):
                 # |76543210|   Example:
@@ -348,9 +342,10 @@ def down_code(
                     bits_effect_left = (bits_left + bits) % 8
                     bits_effect_num = int(
                         (bits_left + bits) / 8) + (1 if bits_effect_left != 0 else 0)
+                    tail_bits_num = 8 - bits_effect_left if bits_effect_left != 0 else 0
+
                     move_type = get_move_type(
                         int(bits / 8) + (1 if bits % 8 != 0 else 0))
-                    tail_bits_num = 8 - bits_effect_left if bits_effect_left != 0 else 0
                     if(move_type != 'uint8_t'):
                         bits_block = '(%s)%s[%d]' % (
                             move_type, whole_array, bits_index)
@@ -395,20 +390,193 @@ def down_code(
                                 content_name, bits_block, min, max, bits)
                     start_bits += bits
                     cases_dict[canid] += ('    ' + content_tmp_str)
-        if(array_order_check_str != ''):
-            array_order_check_str = '\n// Array package recive order check\n' + \
-                array_order_check_str
-        c_str = c_str.replace('{$ARRAY_ORDER_CHECK}', array_order_check_str)
 
     cases = ''
-    for key in cases_dict.keys():
-        cases += (BLOCK_IF_ELSE_STR
-                  if dynamic_canid_offset else BLOCK_CASE_STR).replace(
-                      '{$CAN_ID}', key).replace('{$SINGLE_OPERATE}', cases_dict[key])
-    cases = cases[0:-1]
+    need_check: bool = (len(cases_dict) > 1)
     c_str = c_str.replace(
-        '{$SWITCH_OR_IF}', BLOCK_IF_ELSE if dynamic_canid_offset else BLOCK_SWITCH)
+        '{$ORDER_CHECKER}', BLOCK_ORDER_CHECKER if need_check else '')
+    key_index = 0
+    for key in cases_dict.keys():
+        if(key_index == len(cases_dict) - 1):
+            cases_dict[key] += '    {$NAME}_callback(&rx_data);\n'
+        cases += (SINGLE_IF_ELSE_STR if dynamic_canid_offset else SINGLE_CASE_STR).replace(
+            '{$CAN_ID}', key).replace(
+            '{$SINGLE_OPERATE}', cases_dict[key]).replace(
+            '{$ORDER_CHECK}', (BLOCK_ORDER_CHECK % (
+                key_index, str(key_index == len(cases_dict) - 1).lower(),
+                ('return true;' if dynamic_canid_offset else 'break;'))) if need_check else '')
+        key_index += 1
+    cases = cases[:-1]
+    c_str = c_str.replace(
+        '{$BLOCK_DECODE}', BLOCK_IF_ELSE if dynamic_canid_offset else BLOCK_SWITCH)
     c_str = c_str.replace('{$CASES}', cases)
+
+    # TX CODE
+    tx_dict = {}
+    tmp_buff_dict = {}
+    if('var' in toml_dict):
+        for single_var in toml_dict['var']:
+            canid = get_canid(
+                single_var['can_id'], dynamic_canid_offset, canid_offset)
+            if(canid not in tx_dict):
+                tx_dict.update({canid: ''})
+                if(len(tx_dict) != 1):
+                    tx_dict[canid] += '\n  memset(&tx_buffer[0], 0, sizeof(tx_buffer));\n'
+
+            param = single_var['parser_param']
+            var_name = single_var['var_name']
+            var_type = single_var['var_type']
+            if(len(param) == 2):
+                # var
+                index = 0
+                u8_num = param[1] - param[0] + 1
+                move_var_name = 'tx_data->%s' % var_name
+                if(var_type == 'float'):
+                    move_var_name = 'tmp_u32_buff'
+                    if(u8_num == 4):
+                        tx_dict[canid] += '  %s%s = float_bits_to_u32(tx_data->%s);\n' % (
+                            get_buff_type(tmp_buff_dict, 'uint32_t '), move_var_name, var_name)
+                    else:
+                        tx_dict[canid] += '  %s%s = tx_data->%s * %f;\n' % (
+                            get_buff_type(tmp_buff_dict, 'uint32_t '),
+                            move_var_name, var_name, 1 / float(single_var['var_zoom']))
+                elif(var_type == 'double'):
+                    move_var_name = 'tmp_u64_buff'
+                    if(u8_num == 8):
+                        tx_dict[canid] += '  %s%s = double_bits_to_u64(tx_data->%s);\n' % (
+                            get_buff_type(tmp_buff_dict, 'uint64_t '), move_var_name, var_name)
+                    else:
+                        tx_dict[canid] += '  %s%s = tx_data->%s * %f;\n' % (
+                            get_buff_type(tmp_buff_dict, 'uint64_t '),
+                            move_var_name, var_name, 1 / float(single_var['var_zoom']))
+                if(var_type == 'u8_array'):
+                    tx_dict[canid] += '  memcpy(&tx_buffer[%d], &tx_data->%s[0], %d);\n' % (
+                        param[0], var_name, param[1] - param[0] + 1)
+                else:
+                    for i in range(param[0], param[1] + 1):
+                        move_num = (param[1] - param[0] - index) * 8
+                        index += 1
+                        if(move_num != 0):
+                            tx_dict[canid] += '  tx_buffer[%d] = (%s >> %d) & 0xFF;\n' % (
+                                i, move_var_name, move_num)
+                        else:
+                            tx_dict[canid] += '  tx_buffer[%d] = %s & 0xFF;\n' % (
+                                i, move_var_name)
+            elif(len(param) == 3):
+                # bits
+                if(param[2] != 0):
+                    tx_dict[canid] += '  tx_buffer[%d] |= (tx_data->%s & %s) << %d;\n' % (
+                        param[0], var_name, get_0bmask(param[1] - param[2], 0), param[2])
+                elif(param[1] - param[2] != 7):
+                    tx_dict[canid] += '  tx_buffer[%d] |= tx_data->%s & %s;\n' % (
+                        param[0], var_name, get_0bmask(param[1] - param[2], 0))
+                else:
+                    tx_dict[canid] += '  tx_buffer[%d] = tx_data->%s;\n' % (
+                        param[0], var_name)
+    if('array' in toml_dict):
+        for single_array in toml_dict['array']:
+            package_num = single_array['package_num']
+            canid_list = single_array['can_id']
+            array_name = single_array['array_name']
+            if(package_num > 2 and len(canid_list) == 2):
+                start = get_canid(
+                    canid_list[0], dynamic_canid_offset, canid_offset)
+                end = get_canid(
+                    canid_list[1], dynamic_canid_offset, canid_offset)
+                canid_list = []
+                for i in range(int(start.split('+')[0], base=16),
+                               int(end.split('+')[0], base=16) + 1):
+                    canid_list.append(hex(i) + (' + canid_offset'
+                                                if len(start.split('+')) == 2 else ''))
+            else:
+                for i in range(len(canid_list)):
+                    canid_list[i] = get_canid(
+                        canid_list[i], dynamic_canid_offset, canid_offset)
+
+            tx_dict.update({canid_list[0]: '\n'})
+            if('content' in single_array and len(single_array['content']) != 0):
+                # |76543210|   Example:
+                # |===-----|   = : left                  3
+                # |--------|   - : single_content.bits  15
+                # |--______|   _ : 8 - effect_left       6
+                start_bits = 0
+                tx_dict[canid_list[0]] += \
+                    '  memset(&tx_data->%s[0], 0, sizeof(tx_data->%s));\n' % (
+                    array_name, array_name)
+                for single_content in single_array['content']:
+                    content_name = single_content['name']
+                    min = single_content['min']
+                    max = single_content['max']
+                    bits = single_content['bits']
+                    whole_array = 'tx_data->%s' % array_name
+
+                    bits_index = int(start_bits / 8)
+                    bits_left = start_bits % 8
+                    bits_effect_left = (bits_left + bits) % 8
+                    bits_effect_num = int(
+                        (bits_left + bits) / 8) + (1 if bits_effect_left != 0 else 0)
+                    tail_bits_num = 8 - bits_effect_left if bits_effect_left != 0 else 0
+
+                    buff_choose = ''
+                    if(bits <= 32):
+                        buff_choose = 'tmp_u32_buff'
+                        tx_dict[canid_list[0]] += \
+                            '  %s%s = float_range_to_u32(tx_data->%s, %f, %f, %d);\n' \
+                            % (get_buff_type(tmp_buff_dict, 'uint32_t '), buff_choose,
+                               content_name, min, max, bits)
+                    else:
+                        buff_choose = 'tmp_u64_buff'
+                        tx_dict[canid_list[0]] += \
+                            '  %s%s = double_range_to_u64(tx_data->%s, %f, %f, %d);\n' \
+                            % (get_buff_type(tmp_buff_dict, 'uint64_t '), buff_choose,
+                               content_name, min, max, bits)
+                    tmp_content_str = ''
+                    if(bits_effect_num == 1):
+                        tmp_content_str += '  %s[%d] |= %s << %d;\n' % (
+                            whole_array, bits_index, buff_choose, tail_bits_num)
+                        tmp_content_str.replace(' << 0', '')
+                    else:
+                        left_bits = bits - (8 - bits_left)
+                        tmp_content_str += '  %s[%d] |= %s >> %d;\n' % (
+                            whole_array, bits_index, buff_choose, left_bits)
+                        loaded_index = 1
+                        while(left_bits >= 8):
+                            left_bits -= 8
+                            loaded_index += 1
+                            if(left_bits != 0):
+                                tmp_content_str += '  %s[%d] = (%s >> %d) & 0xFF;\n' % (
+                                    whole_array, bits_index + loaded_index - 1,
+                                    buff_choose, left_bits)
+                            else:
+                                tmp_content_str += '  %s[%d] = %s & 0xFF;\n' % (
+                                    whole_array, bits_index + loaded_index - 1, buff_choose)
+                        if(left_bits != 0):
+                            tmp_content_str += '  %s[%d] |= (%s << %d) & 0xFF;\n' % (
+                                whole_array, bits_index + bits_effect_num - 1,
+                                buff_choose, tail_bits_num)
+                    tx_dict[canid_list[0]] += tmp_content_str
+                    start_bits += bits
+            array_index = 0
+            for canid in canid_list:
+                if(canid not in tx_dict):
+                    tx_dict.update({canid: ''})
+                tx_dict[canid] += '  memcpy(&tx_buffer[0], &tx_data->%s[%d], %d);\n' % (
+                    array_name, array_index * can_len, can_len)
+                array_index += 1
+
+    tx_str = ''
+    for key in tx_dict.keys():
+        tx_str += (tx_dict[key] + '  send_%s_can(%s, %s, &tx_buffer[0]);\n' % (
+            'fd' if canfd_enable else 'std', key, str(extended_frame).lower()))
+    tx_str = tx_str[:-1]
+    c_str = c_str.replace('{$BLOCK_ENCODE}', tx_str)
+
+    c_str = c_str.replace('{$NAME}', name)
+    c_str = c_str.replace('{$CAN_LEN}', str(can_len))
+    c_str = c_str.replace('{$DEF_NAME}', name.upper())
+    c_str = c_str.replace('{$CANID_OFFSET}',
+                          ('\nuint32_t canid_offset = %d;\n' % canid_offset)
+                          if dynamic_canid_offset else '')
     writer = open('%s/%s.c' % (out_path, name), 'w')
     writer.write(c_str)
     writer.close()

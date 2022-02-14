@@ -5,14 +5,19 @@
 #include "{$HEADER_NAME}"
 {$CANID_OFFSET}
 #ifdef {$DEF_NAME}_ENABLE_RX
+// unpackage & decode data buffer
 struct {$NAME} rx_data;
-{$ARRAY_ORDER_CHECK}
+{$ORDER_CHECKER}
 bool {$NAME}_get_raw_can_data(uint32_t can_id, uint8_t * can_data)
 {
-{$SWITCH_OR_IF}
+{$BLOCK_DECODE}
 }
 #endif  // {$DEF_NAME}_ENABLE_RX
 
 #ifdef {$DEF_NAME}_ENABLE_TX
-
+void {$NAME}_send(struct {$NAME} * tx_data)
+{
+  uint8_t tx_buffer[{$CAN_LEN}] = {0};
+{$BLOCK_ENCODE}
+}
 #endif  // {$DEF_NAME}_ENABLE_TX

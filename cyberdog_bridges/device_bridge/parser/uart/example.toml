@@ -32,7 +32,7 @@ name = "uart_device_name"
 frame = "frame_name_1"
 var_name = "example_var_1"
 var_type = "double"
-parser_param = [0, 7]
+parser_param = [0, 3]
 var_zoom = 0.0001
 description = "this is example named example_var_1"
 

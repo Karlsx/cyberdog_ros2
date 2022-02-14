@@ -29,14 +29,12 @@ bool {$NAME}_get_raw_can_data(uint32_t can_id, uint8_t * can_data);
 ///        and you can get data with param
 /// @param data Recived data from can
 void {$NAME}_callback(struct {$NAME} * data);
-
-/// @note Need define in other .c file
-/// @brief When recive unexpect array, this func will be called
-/// @param get Array package can_id get from recive
-void {$NAME}_array_package_unorder_error(uint32_t get);
 #endif  // {$DEF_NAME}_ENABLE_RX
 
 #ifdef {$DEF_NAME}_ENABLE_TX
+/// @note Need first define "send_std_can" or "send_fd_can" in other .c file before use
+/// @brief Send whole struct data
+/// @param tx_data Struct data you want to send out
 void {$NAME}_send(struct {$NAME} * tx_data);
 #endif  // {$DEF_NAME}_ENABLE_TX
 
