@@ -14,7 +14,7 @@ struct {$NAME}
 {
 {$VARS}
 };
-
+{$CANID_OFFSET}
 #ifdef {$DEF_NAME}_ENABLE_RX
 /// @note Need to be called in CAN_Recive func
 /// @brief Get single can package and try to decode to struct

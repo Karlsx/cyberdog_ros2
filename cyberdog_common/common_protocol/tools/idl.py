@@ -161,12 +161,21 @@ def readall(file_path: str) -> str:
     return out_str
 
 
-def up_code(toml_dict: dict, inclass: bool) -> str:
+def up_code(toml_path: str, input_argv: dict) -> str:
+    toml_dict = toml.load(toml_path)
+    toml_name = toml_path.split('/')[-1]
+    inclass: bool = '--inclass' in input_argv
+    if '--name' in input_argv:
+        name = input_argv['--name'][0]
+    else:
+        name = toml_name.split('.')[0]
+
     path = os.path.abspath(os.path.dirname(__file__))
     path += '/templates/upcode_inclass.txt' if inclass else '/templates/upcode_outclass.txt'
     out_str = readall(path)
 
     vars, link_vars = get_vars_linkvars(toml_dict, inclass)
+    out_str = out_str.replace('{$NAME}', name)
     out_str = out_str.replace('{$VARS}', vars)
     out_str = out_str.replace('{$LINK_VARS}', link_vars)
     return out_str
@@ -196,15 +205,33 @@ bool {$NAME}_OCEF = 0;  // OCEF: order_check_error_flag
 BLOCK_ORDER_CHECK = """    if (!is_package_inorder\
 (&{$NAME}_OC, %d, &{$NAME}_OCEF, %s)) {%s}
 """
+BLOCK_CANID_OFFSET_DEF = """
+uint32_t canid_offset = %d;
+
+void {$NAME}_canid_offset(uint32_t offset)
+{
+  canid_offset = offset;
+}
+"""
+BLOCK_CANID_OFFSET_REF = """
+/// @brief Change canid_offset dynamic
+/// @param offset New offset value
+void {$NAME}_canid_offset(uint32_t offset);
+"""
 
 
-def down_code(
-        toml_path: str,
-        out_path: str,
-        canid_offset: int = 0,
-        name: str = None):
-    dynamic_canid_offset = False
-    # dynamic_canid_offset = True
+def down_code(toml_path: str, input_argv: dict):
+    toml_name = toml_path.split('/')[-1]
+    out_path = input_argv['--out'][0]
+    if '--offset' in input_argv:
+        canid_offset = int(input_argv['--offset'][0])
+    else:
+        canid_offset = 0
+    if '--name' in input_argv:
+        name = input_argv['--name'][0]
+    else:
+        name = toml_name.split('.')[0]
+    dynamic_canid_offset = '--dynamic_offset' in input_argv
 
     idl_path = os.path.abspath(os.path.dirname(__file__))
     toml_dict = toml.load(toml_path)
@@ -216,11 +243,12 @@ def down_code(
     h_str = readall(idl_path + '/templates/downcode_h.txt')
     c_str = readall(idl_path + '/templates/downcode_c.txt')
     vars, link_vars = get_vars_linkvars(toml_dict, False)
-    if(name is None):
-        name = toml_path.split('/')[-1].split('.')[0]
-    toml_name = toml_path.split('/')[-1]
+
     h_str = h_str.replace('{$TOML_NAME}', toml_name)
     h_str = h_str.replace('{$VARS}', vars)
+    h_str = h_str.replace('{$CANID_OFFSET}',
+                          BLOCK_CANID_OFFSET_REF
+                          if dynamic_canid_offset else '')
     h_str = h_str.replace('{$NAME}', name)
     h_str = h_str.replace('{$DEF_NAME}', name.upper())
     writer = open('%s/%s.h' % (out_path, name), 'w')
@@ -571,12 +599,12 @@ def down_code(
     tx_str = tx_str[:-1]
     c_str = c_str.replace('{$BLOCK_ENCODE}', tx_str)
 
-    c_str = c_str.replace('{$NAME}', name)
     c_str = c_str.replace('{$CAN_LEN}', str(can_len))
     c_str = c_str.replace('{$DEF_NAME}', name.upper())
     c_str = c_str.replace('{$CANID_OFFSET}',
-                          ('\nuint32_t canid_offset = %d;\n' % canid_offset)
+                          (BLOCK_CANID_OFFSET_DEF % canid_offset)
                           if dynamic_canid_offset else '')
+    c_str = c_str.replace('{$NAME}', name)
     writer = open('%s/%s.c' % (out_path, name), 'w')
     writer.write(c_str)
     writer.close()
@@ -589,11 +617,23 @@ def down_code(
 
 if __name__ == '__main__':
     cmd = sys.argv[1]
+    last_key = ''
+    input_argv = {}
+    for i in sys.argv[2:]:
+        if(str(i).startswith('--')):
+            if(i not in input_argv):
+                last_key = i
+                input_argv.update({last_key: []})
+        else:
+            input_argv[last_key].append(i)
+
     if(cmd == 'up'):
-        print(up_code(toml.load(sys.argv[2]), False))
-    elif(cmd == 'up-inclass'):
-        print(up_code(toml.load(sys.argv[2]), True))
+        for toml_path in input_argv['--toml']:
+            if(len(input_argv['--toml']) != 1):
+                print('\n%s:\n' % toml_path)
+            print(up_code(toml_path, input_argv))
     elif(cmd == 'down'):
-        down_code(sys.argv[2], '/home/karls/work/tmp', 0)
+        for toml_path in input_argv['--toml']:
+            down_code(toml_path, input_argv)
     else:
         print('unknow cmd:"%s"' % cmd)
